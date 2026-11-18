@@ -15,7 +15,7 @@
 </head>
 <body>
 <canvas id="gra" width="480" height="640"></canvas>
-<p>Klawiatura: strzałki · Spacja: strzał · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry</p>
+<p>Klawiatura: strzałki · Spacja lub X: strzał · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry</p>
 
 <script>
 // ===== Ustawienia =====
@@ -34,16 +34,22 @@ const ROCK_POINTS = 10;   // punkty za rozbitą skałę
 let best = 0;
 try { best = Number(localStorage.getItem('lotNadRzeka_best')) || 0; } catch (e) {}
 
+// Klawisze zapisujemy po e.code (fizyczny klawisz), więc działa przy każdym układzie klawiatury
 const keys = {};
+let wantShot = false;     // krótkie stuknięcie Spacji/X też odda strzał
+const isShotKey = c => c === 'Space' || c === 'KeyX';
 addEventListener('keydown', e => {
-  keys[e.key] = true;
-  if (e.key.startsWith('Arrow') || e.key === ' ') e.preventDefault();
-  if (e.key === 'Enter' && (state === 'start' || state === 'over')) newGame();
-  if ((e.key === 'p' || e.key === 'P') && (state === 'play' || state === 'pause')) {
+  keys[e.code] = true;
+  if (e.code.startsWith('Arrow') || isShotKey(e.code)) e.preventDefault();
+  if (isShotKey(e.code) && !e.repeat) wantShot = true;
+  if ((e.code === 'Enter' || e.code === 'NumpadEnter') && (state === 'start' || state === 'over')) newGame();
+  if (e.code === 'KeyP' && (state === 'play' || state === 'pause')) {
     state = state === 'play' ? 'pause' : 'play';
   }
 });
-addEventListener('keyup', e => { keys[e.key] = false; });
+addEventListener('keyup', e => { keys[e.code] = false; });
+// Po przełączeniu okna klawisze mogłyby "utknąć" wciśnięte
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
 // ===== Sterowanie dotykiem (działa też myszą) =====
 // Przesuwasz palec w dowolnym miejscu gry, a samolot przesuwa się o tyle samo,
@@ -117,6 +123,24 @@ function randomWaterX(wy, pad) {
   const start = left ? r.c - r.w + pad : r.c + r.iw + pad;
   return start + Math.random() * Math.max(0, chW);
 }
+// Skały stawiamy tylko na szerokich fragmentach rzeki i zawsze z wolnym przejazdem obok.
+const ROCK_MIN_WIDTH = 190;   // minimalna szerokość wody (bez wyspy), żeby postawić skałę
+const ROCK_FREE_GAP = 80;     // tyle wolnej wody musi zostać obok skały
+function placeRock(wy) {
+  // rzeka musi być szeroka w całej okolicy skały, a nie tylko w jednym punkcie
+  for (let d = -80; d <= 80; d += 20) {
+    const r = riverAt(wy + d);
+    if (r.iw > 0.5 || 2 * r.w < ROCK_MIN_WIDTH) return null;
+  }
+  const r = riverAt(wy);
+  const rad = 10 + Math.random() * 8;
+  for (let tries = 0; tries < 6; tries++) {
+    const x = r.c - r.w + rad + 6 + Math.random() * (2 * r.w - 2 * rad - 12);
+    const gapLeft = (x - rad) - (r.c - r.w), gapRight = (r.c + r.w) - (x + rad);
+    if (Math.max(gapLeft, gapRight) >= ROCK_FREE_GAP) return { x, wy, r: rad };
+  }
+  return null;
+}
 function channelCenter(wy) {
   const r = riverAt(wy);
   return r.iw < 3 ? r.c : (r.c - r.w + r.c - r.iw) / 2;
@@ -130,7 +154,7 @@ const toWorldY = sy => cam + (H - sy);
 function newGame() {
   cam = 0; lives = 3; score = 0; bonus = 0;
   rocks = []; rings = []; particles = []; segments = [];
-  bullets = []; shotCd = 0;
+  bullets = []; shotCd = 0; wantShot = false;
   plane = { x: W / 2, y: H - 110 };
   invuln = 1.5; nextSpawn = 400;
   state = 'play';
@@ -161,11 +185,12 @@ function update(dt) {
   cam += speed * dt;
   score = Math.floor(cam / 10) + bonus;
 
-  // Strzelanie: Spacja (można trzymać)
+  // Strzelanie: Spacja albo X (można trzymać)
   shotCd -= dt;
-  if (keys[' '] && shotCd <= 0) {
+  if ((keys.Space || keys.KeyX || wantShot) && shotCd <= 0) {
     bullets.push({ x: plane.x, wy: toWorldY(plane.y - 18) });
     shotCd = SHOT_DELAY;
+    wantShot = false;
   }
   // Pociski lecą w górę; znikają poza ekranem albo nad lądem
   for (const b of bullets) {
@@ -186,7 +211,8 @@ function update(dt) {
   // Nowe skały i kółka pojawiają się nad ekranem
   while (nextSpawn < cam + H + 60) {
     const wy = nextSpawn;
-    if (Math.random() < 0.55) rocks.push({ x: randomWaterX(wy, 22), wy, r: 10 + Math.random() * 8 });
+    const rock = Math.random() < 0.55 ? placeRock(wy) : null;
+    if (rock) rocks.push(rock);
     else rings.push({ x: randomWaterX(wy, 20), wy, got: false });
     nextSpawn += Math.max(90, 220 - cam * 0.004) * (0.6 + Math.random() * 0.8);
   }
@@ -330,7 +356,7 @@ function draw() {
   drawHud();
   if (state === 'start') overlay('Lot nad Rzeką', [
     'Omijaj brzegi i wyspy, zbieraj kółka: +25',
-    'Spacja: strzał, rozbita skała: +10',
+    'Spacja lub X: strzał, rozbita skała: +10',
     '← → na boki, ↑ szybciej, ↓ wolniej',
     'lub przesuwaj palcem po ekranie',
     'Enter albo dotknij, aby zacząć'

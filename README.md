@@ -15,7 +15,9 @@ Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie t
 - ← → lot na boki
 - ↑ lot do przodu (szybciej)
 - ↓ lot do tyłu (wolniej)
-- Spacja strzał (można trzymać); rozbita skała daje +10 punktów
+- Spacja lub X strzał (można trzymać); rozbita skała daje +10 punktów
+
+Skały pojawiają się tylko na szerokich fragmentach rzeki i zawsze zostawiają wolny przejazd.
 - P pauza
 - Enter start i nowa gra
 
