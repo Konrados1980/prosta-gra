@@ -15,6 +15,7 @@ Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie t
 - ← → lot na boki
 - ↑ lot do przodu (szybciej)
 - ↓ lot do tyłu (wolniej)
+- Spacja strzał (można trzymać); rozbita skała daje +10 punktów
 - P pauza
 - Enter start i nowa gra
 

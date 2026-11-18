@@ -15,7 +15,7 @@
 </head>
 <body>
 <canvas id="gra" width="480" height="640"></canvas>
-<p>Klawiatura: strzałki · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry</p>
+<p>Klawiatura: strzałki · Spacja: strzał · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry</p>
 
 <script>
 // ===== Ustawienia =====
@@ -27,6 +27,10 @@ const SEG = 160;          // długość jednego odcinka rzeki (w pikselach świa
 // ===== Stan gry =====
 let state = 'start';      // 'start' | 'play' | 'pause' | 'over'
 let cam, plane, lives, score, bonus, rocks, rings, particles, segments, invuln, nextSpawn;
+let bullets, shotCd;      // pociski samolotu i czas do następnego strzału
+const SHOT_DELAY = 0.2;   // co ile sekund można strzelić (przy trzymanej Spacji)
+const SHOT_SPEED = 550;   // jak szybko pocisk leci w górę ekranu
+const ROCK_POINTS = 10;   // punkty za rozbitą skałę
 let best = 0;
 try { best = Number(localStorage.getItem('lotNadRzeka_best')) || 0; } catch (e) {}
 
@@ -102,7 +106,7 @@ function riverAt(wy) {
 }
 function inWater(x, wy) {
   const r = riverAt(wy), d = Math.abs(x - r.c);
-  return d < r.w && d > r.iw;
+  return d < r.w && (r.iw < 1 || d > r.iw);   // iw < 1 = brak wyspy
 }
 // Losowy punkt w wodzie (w lewym lub prawym kanale, jeśli jest wyspa)
 function randomWaterX(wy, pad) {
@@ -126,6 +130,7 @@ const toWorldY = sy => cam + (H - sy);
 function newGame() {
   cam = 0; lives = 3; score = 0; bonus = 0;
   rocks = []; rings = []; particles = []; segments = [];
+  bullets = []; shotCd = 0;
   plane = { x: W / 2, y: H - 110 };
   invuln = 1.5; nextSpawn = 400;
   state = 'play';
@@ -155,6 +160,28 @@ function update(dt) {
   const speed = base + (H - 40 - plane.y) * 0.35;
   cam += speed * dt;
   score = Math.floor(cam / 10) + bonus;
+
+  // Strzelanie: Spacja (można trzymać)
+  shotCd -= dt;
+  if (keys[' '] && shotCd <= 0) {
+    bullets.push({ x: plane.x, wy: toWorldY(plane.y - 18) });
+    shotCd = SHOT_DELAY;
+  }
+  // Pociski lecą w górę; znikają poza ekranem albo nad lądem
+  for (const b of bullets) {
+    b.wy += (speed + SHOT_SPEED) * dt;
+    if (toScreenY(b.wy) < 34) b.dead = true;
+    else if (!inWater(b.x, b.wy)) { b.dead = true; burst(b.x, toScreenY(b.wy), '#a1887f', 5); }
+    else {
+      const rock = rocks.find(o => !o.dead && Math.hypot(o.x - b.x, o.wy - b.wy) < o.r + 4);
+      if (rock) {
+        rock.dead = true; b.dead = true; bonus += ROCK_POINTS;
+        burst(rock.x, toScreenY(rock.wy), '#9e9e9e', 18);
+      }
+    }
+  }
+  bullets = bullets.filter(b => !b.dead);
+  rocks = rocks.filter(o => !o.dead);
 
   // Nowe skały i kółka pojawiają się nad ekranem
   while (nextSpawn < cam + H + 60) {
@@ -248,6 +275,9 @@ function drawWorld() {
     ctx.strokeStyle = '#ffd54a'; ctx.lineWidth = 4;
     ctx.beginPath(); ctx.arc(g.x, sy, 11, 0, Math.PI * 2); ctx.stroke();
   }
+  // Pociski
+  ctx.fillStyle = '#fff59d';
+  for (const b of bullets) ctx.fillRect(b.x - 1.5, toScreenY(b.wy) - 6, 3, 12);
 }
 
 function drawPlane() {
@@ -299,8 +329,8 @@ function draw() {
   drawParticles();
   drawHud();
   if (state === 'start') overlay('Lot nad Rzeką', [
-    'Omijaj brzegi, wyspy i skały.',
-    'Zbieraj złote kółka: +25 pkt.',
+    'Omijaj brzegi i wyspy, zbieraj kółka: +25',
+    'Spacja: strzał, rozbita skała: +10',
     '← → na boki, ↑ szybciej, ↓ wolniej',
     'lub przesuwaj palcem po ekranie',
     'Enter albo dotknij, aby zacząć'
