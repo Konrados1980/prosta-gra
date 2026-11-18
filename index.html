@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lot nad Rzeką</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1b2330; color: #eee; font-family: system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+  canvas { background: #2f7d32; border: 3px solid #0d1117; border-radius: 6px; max-width: 95vw; max-height: 85vh; image-rendering: pixelated; }
+  p { margin: 0; font-size: 14px; opacity: .8; }
+</style>
+</head>
+<body>
+<canvas id="gra" width="480" height="640"></canvas>
+<p>Strzałki: sterowanie · P: pauza · Enter: start</p>
+
+<script>
+// ===== Ustawienia =====
+const canvas = document.getElementById('gra');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const SEG = 160;          // długość jednego odcinka rzeki (w pikselach świata)
+
+// ===== Stan gry =====
+let state = 'start';      // 'start' | 'play' | 'pause' | 'over'
+let cam, plane, lives, score, bonus, rocks, rings, particles, segments, invuln, nextSpawn;
+let best = 0;
+try { best = Number(localStorage.getItem('lotNadRzeka_best')) || 0; } catch (e) {}
+
+const keys = {};
+addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key.startsWith('Arrow') || e.key === ' ') e.preventDefault();
+  if (e.key === 'Enter' && (state === 'start' || state === 'over')) newGame();
+  if ((e.key === 'p' || e.key === 'P') && (state === 'play' || state === 'pause')) {
+    state = state === 'play' ? 'pause' : 'play';
+  }
+});
+addEventListener('keyup', e => { keys[e.key] = false; });
+
+// ===== Rzeka =====
+// Każdy odcinek ma: c = środek, w = połowa szerokości, iw = połowa szerokości wyspy (0 = brak)
+function makeSegment(i) {
+  if (i < 4) return { c: W / 2, w: 170, iw: 0 };
+  const hard = Math.min(i / 120, 1);                 // trudność rośnie z dystansem
+  const w = 75 + Math.random() * (120 - 50 * hard);  // szerokość rzeki
+  const margin = 15;
+  const prev = segments[i - 1];
+  // środek przesuwa się najwyżej o 80 px na odcinek, żeby dało się nadążyć za zakrętem
+  const minC = w + margin, maxC = W - w - margin;
+  const c = Math.max(minC, Math.min(maxC, prev.c + (Math.random() * 2 - 1) * 80));
+  let iw = 0;
+  if (w > 120 && Math.random() < 0.35 + 0.2 * hard) iw = Math.min(w * 0.4, w - 55);
+  return { c, w, iw };
+}
+function seg(i) {
+  while (segments.length <= i) segments.push(makeSegment(segments.length));
+  return segments[i];
+}
+function riverAt(wy) {
+  const i = Math.floor(wy / SEG);
+  let t = (wy - i * SEG) / SEG;
+  t = t * t * (3 - 2 * t);                           // płynne przejście
+  const a = seg(i), b = seg(i + 1);
+  return { c: a.c + (b.c - a.c) * t, w: a.w + (b.w - a.w) * t, iw: a.iw + (b.iw - a.iw) * t };
+}
+function inWater(x, wy) {
+  const r = riverAt(wy), d = Math.abs(x - r.c);
+  return d < r.w && d > r.iw;
+}
+// Losowy punkt w wodzie (w lewym lub prawym kanale, jeśli jest wyspa)
+function randomWaterX(wy, pad) {
+  const r = riverAt(wy);
+  if (r.iw < 3) return r.c - r.w + pad + Math.random() * Math.max(0, 2 * (r.w - pad));
+  const chW = r.w - r.iw - 2 * pad;
+  const left = Math.random() < 0.5;
+  const start = left ? r.c - r.w + pad : r.c + r.iw + pad;
+  return start + Math.random() * Math.max(0, chW);
+}
+function channelCenter(wy) {
+  const r = riverAt(wy);
+  return r.iw < 3 ? r.c : (r.c - r.w + r.c - r.iw) / 2;
+}
+
+// Zamiana współrzędnych: świat (wy rośnie w górę) -> ekran
+const toScreenY = wy => H - (wy - cam);
+const toWorldY = sy => cam + (H - sy);
+
+// ===== Nowa gra =====
+function newGame() {
+  cam = 0; lives = 3; score = 0; bonus = 0;
+  rocks = []; rings = []; particles = []; segments = [];
+  plane = { x: W / 2, y: H - 110 };
+  invuln = 1.5; nextSpawn = 400;
+  state = 'play';
+}
+
+// ===== Logika =====
+function update(dt) {
+  // Sterowanie: lewo/prawo = na boki, góra/dół = do przodu/do tyłu
+  const side = 260, fwd = 200;
+  if (keys.ArrowLeft) plane.x -= side * dt;
+  if (keys.ArrowRight) plane.x += side * dt;
+  if (keys.ArrowUp) plane.y -= fwd * dt;
+  if (keys.ArrowDown) plane.y += fwd * dt;
+  plane.x = Math.max(15, Math.min(W - 15, plane.x));
+  plane.y = Math.max(120, Math.min(H - 40, plane.y));
+
+  // Prędkość: rośnie z dystansem, a lot "do przodu" dodatkowo przyspiesza
+  const base = Math.min(110 + cam * 0.012, 300);
+  const speed = base + (H - 40 - plane.y) * 0.35;
+  cam += speed * dt;
+  score = Math.floor(cam / 10) + bonus;
+
+  // Nowe skały i kółka pojawiają się nad ekranem
+  while (nextSpawn < cam + H + 60) {
+    const wy = nextSpawn;
+    if (Math.random() < 0.55) rocks.push({ x: randomWaterX(wy, 22), wy, r: 10 + Math.random() * 8 });
+    else rings.push({ x: randomWaterX(wy, 20), wy, got: false });
+    nextSpawn += Math.max(90, 220 - cam * 0.004) * (0.6 + Math.random() * 0.8);
+  }
+  rocks = rocks.filter(o => toScreenY(o.wy) < H + 40);
+  rings = rings.filter(o => toScreenY(o.wy) < H + 40 && !o.got);
+
+  // Kółka: +25 pkt
+  const pwy = toWorldY(plane.y);
+  for (const g of rings) {
+    if (Math.hypot(g.x - plane.x, g.wy - pwy) < 24) {
+      g.got = true; bonus += 25;
+      burst(plane.x, plane.y, '#ffd54a', 12);
+    }
+  }
+
+  // Zderzenia (gdy nie ma chwilowej ochrony)
+  if (invuln > 0) { invuln -= dt; }
+  else {
+    const pts = [[0, -16], [-15, 2], [15, 2], [0, 12], [-6, 12], [6, 12]];
+    let hit = pts.some(([dx, dy]) => !inWater(plane.x + dx, toWorldY(plane.y + dy)));
+    if (!hit) hit = rocks.some(o => Math.hypot(o.x - plane.x, o.wy - pwy) < o.r + 11);
+    if (hit) crash();
+  }
+
+  // Cząsteczki (wybuchy, błyski)
+  for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+  particles = particles.filter(p => p.life > 0);
+}
+
+function crash() {
+  burst(plane.x, plane.y, '#ff7043', 30);
+  lives--;
+  if (lives <= 0) {
+    state = 'over';
+    if (score > best) { best = score; try { localStorage.setItem('lotNadRzeka_best', best); } catch (e) {} }
+    return;
+  }
+  // Odrodzenie na środku kanału i usunięcie pobliskich skał
+  plane.y = H - 110;
+  const wy = toWorldY(plane.y);
+  plane.x = channelCenter(wy);
+  rocks = rocks.filter(o => Math.abs(o.wy - wy) > 250);
+  invuln = 2;
+}
+
+function burst(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = 40 + Math.random() * 160;
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.4 + Math.random() * 0.5, color });
+  }
+}
+
+// ===== Rysowanie =====
+function drawWorld() {
+  ctx.fillStyle = '#2f7d32';                 // ląd
+  ctx.fillRect(0, 0, W, H);
+  const step = 4;
+  for (let y = 0; y < H; y += step) {
+    const r = riverAt(toWorldY(y));
+    ctx.fillStyle = '#1e88e5';               // woda
+    ctx.fillRect(r.c - r.w, y, r.w * 2, step);
+    ctx.fillStyle = '#90caf9';               // jasny brzeg wody
+    ctx.fillRect(r.c - r.w, y, 3, step);
+    ctx.fillRect(r.c + r.w - 3, y, 3, step);
+    if (r.iw > 2) {
+      ctx.fillStyle = '#c9b27c';             // piasek wyspy
+      ctx.fillRect(r.c - r.iw, y, r.iw * 2, step);
+      ctx.fillStyle = '#388e3c';             // trawa na wyspie
+      ctx.fillRect(r.c - r.iw + 5, y, Math.max(0, r.iw * 2 - 10), step);
+    }
+  }
+  // Skały
+  for (const o of rocks) {
+    const sy = toScreenY(o.wy);
+    ctx.fillStyle = '#5d5d5d';
+    ctx.beginPath(); ctx.arc(o.x, sy, o.r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8a8a8a';
+    ctx.beginPath(); ctx.arc(o.x - o.r * 0.3, sy - o.r * 0.3, o.r * 0.45, 0, Math.PI * 2); ctx.fill();
+  }
+  // Złote kółka
+  for (const g of rings) {
+    const sy = toScreenY(g.wy);
+    ctx.strokeStyle = '#ffd54a'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(g.x, sy, 11, 0, Math.PI * 2); ctx.stroke();
+  }
+}
+
+function drawPlane() {
+  if (invuln > 0 && Math.floor(invuln * 10) % 2 === 0) return;   // miganie podczas ochrony
+  const { x, y } = plane;
+  ctx.fillStyle = '#ffeb3b';
+  ctx.beginPath();                        // kadłub
+  ctx.moveTo(x, y - 18); ctx.lineTo(x + 4, y - 8); ctx.lineTo(x + 4, y + 12);
+  ctx.lineTo(x - 4, y + 12); ctx.lineTo(x - 4, y - 8); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#f44336';
+  ctx.fillRect(x - 16, y - 2, 32, 6);     // skrzydła
+  ctx.fillRect(x - 8, y + 9, 16, 4);      // ogon
+  ctx.fillStyle = '#263238';
+  ctx.fillRect(x - 2, y - 10, 4, 5);      // kabina
+}
+
+function drawHud() {
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.fillRect(0, 0, W, 34);
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 18px system-ui, sans-serif';
+  ctx.textAlign = 'left';  ctx.fillText('Punkty: ' + score, 10, 23);
+  ctx.textAlign = 'center'; ctx.fillText('Rekord: ' + Math.max(best, score), W / 2, 23);
+  ctx.textAlign = 'right'; ctx.fillText('Życia: ' + '♥'.repeat(Math.max(lives, 0)), W - 10, 23);
+}
+
+function drawParticles() {
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life * 1.5);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function overlay(title, lines) {
+  ctx.fillStyle = 'rgba(0,0,0,.6)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+  ctx.font = 'bold 36px system-ui, sans-serif';
+  ctx.fillText(title, W / 2, H / 2 - 60);
+  ctx.font = '18px system-ui, sans-serif';
+  lines.forEach((l, i) => ctx.fillText(l, W / 2, H / 2 - 10 + i * 30));
+}
+
+function draw() {
+  drawWorld();
+  if (state !== 'over') drawPlane();
+  drawParticles();
+  drawHud();
+  if (state === 'start') overlay('Lot nad Rzeką', [
+    'Omijaj brzegi, wyspy i skały.',
+    'Zbieraj złote kółka: +25 pkt.',
+    '← → na boki, ↑ szybciej, ↓ wolniej',
+    'Naciśnij Enter, aby zacząć'
+  ]);
+  if (state === 'pause') overlay('Pauza', ['Naciśnij P, aby grać dalej']);
+  if (state === 'over') overlay('Koniec gry', [
+    'Twój wynik: ' + score,
+    'Rekord: ' + best,
+    'Naciśnij Enter, aby zagrać jeszcze raz'
+  ]);
+}
+
+// ===== Pętla gry =====
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min((now - last) / 1000, 0.05);
+  last = now;
+  if (state === 'play') update(dt);
+  else for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+  draw();
+  requestAnimationFrame(loop);
+}
+
+newGame(); state = 'start';
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
