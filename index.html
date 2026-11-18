@@ -15,7 +15,7 @@
 </head>
 <body>
 <canvas id="gra" width="480" height="640"></canvas>
-<p>Klawiatura: strzałki · Spacja lub X: strzał · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry</p>
+<p>Klawiatura: strzałki · Spacja lub X: strzał · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry<br><small>wersja 1.4 (gwiazdki)</small></p>
 
 <script>
 // ===== Ustawienia =====
@@ -305,7 +305,7 @@ function drawWorld() {
   }
   // Złote gwiazdki (nagroda: zbierasz je przelotem)
   const t = performance.now() / 1000;
-  for (const g of rings) drawStar(g.x, toScreenY(g.wy), 13, t * 2 + g.x);
+  for (const g of rings) drawStar(g.x, toScreenY(g.wy), 16, t * 2 + g.x);
   // Pociski
   ctx.fillStyle = '#fff59d';
   for (const b of bullets) ctx.fillRect(b.x - 1.5, toScreenY(b.wy) - 6, 3, 12);
