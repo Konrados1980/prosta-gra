@@ -1,6 +1,6 @@
 # Lot nad Rzeką
 
-Prosta zręcznościówka w przeglądarce. Lecisz samolotem nad krętą rzeką i omijasz brzegi, wyspy i skały. Za złote kółka dostajesz +25 punktów. Masz 3 życia, a gra z czasem przyspiesza.
+Prosta zręcznościówka w przeglądarce. Lecisz samolotem nad krętą rzeką i omijasz brzegi, wyspy i skały. Za złapanie złotej gwiazdki (przelotem) dostajesz +25 punktów. Masz 3 życia, a gra z czasem przyspiesza.
 
 ## Zagraj online
 

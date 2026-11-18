@@ -28,6 +28,7 @@ const SEG = 160;          // długość jednego odcinka rzeki (w pikselach świa
 let state = 'start';      // 'start' | 'play' | 'pause' | 'over'
 let cam, plane, lives, score, bonus, rocks, rings, particles, segments, invuln, nextSpawn;
 let bullets, shotCd;      // pociski samolotu i czas do następnego strzału
+let popups = [];          // unoszące się napisy z punktami
 const SHOT_DELAY = 0.2;   // co ile sekund można strzelić (przy trzymanej Spacji)
 const SHOT_SPEED = 550;   // jak szybko pocisk leci w górę ekranu
 const ROCK_POINTS = 10;   // punkty za rozbitą skałę
@@ -154,7 +155,7 @@ const toWorldY = sy => cam + (H - sy);
 function newGame() {
   cam = 0; lives = 3; score = 0; bonus = 0;
   rocks = []; rings = []; particles = []; segments = [];
-  bullets = []; shotCd = 0; wantShot = false;
+  bullets = []; shotCd = 0; wantShot = false; popups = [];
   plane = { x: W / 2, y: H - 110 };
   invuln = 1.5; nextSpawn = 400;
   state = 'play';
@@ -202,6 +203,7 @@ function update(dt) {
       if (rock) {
         rock.dead = true; b.dead = true; bonus += ROCK_POINTS;
         burst(rock.x, toScreenY(rock.wy), '#9e9e9e', 18);
+        popup(rock.x, toScreenY(rock.wy), '+' + ROCK_POINTS, '#e0e0e0');
       }
     }
   }
@@ -219,14 +221,18 @@ function update(dt) {
   rocks = rocks.filter(o => toScreenY(o.wy) < H + 40);
   rings = rings.filter(o => toScreenY(o.wy) < H + 40 && !o.got);
 
-  // Kółka: +25 pkt
+  // Gwiazdki: +25 pkt za przelot
   const pwy = toWorldY(plane.y);
   for (const g of rings) {
-    if (Math.hypot(g.x - plane.x, g.wy - pwy) < 24) {
+    if (Math.hypot(g.x - plane.x, g.wy - pwy) < 26) {
       g.got = true; bonus += 25;
-      burst(plane.x, plane.y, '#ffd54a', 12);
+      burst(g.x, toScreenY(g.wy), '#ffd54a', 14);
+      popup(g.x, toScreenY(g.wy), '+25', '#ffd54a');
     }
   }
+  // Napisy z punktami unoszą się do góry i znikają
+  for (const p of popups) { p.y -= 40 * dt; p.life -= dt; }
+  popups = popups.filter(p => p.life > 0);
 
   // Zderzenia (gdy nie ma chwilowej ochrony)
   if (invuln > 0) { invuln -= dt; }
@@ -260,6 +266,8 @@ function crash() {
   if (drag && !drag.released && drag.last) anchorDrag(drag.last);
   else drag = null;
 }
+
+function popup(x, y, text, color) { popups.push({ x, y, text, color, life: 0.9 }); }
 
 function burst(x, y, color, n) {
   for (let i = 0; i < n; i++) {
@@ -295,15 +303,43 @@ function drawWorld() {
     ctx.fillStyle = '#8a8a8a';
     ctx.beginPath(); ctx.arc(o.x - o.r * 0.3, sy - o.r * 0.3, o.r * 0.45, 0, Math.PI * 2); ctx.fill();
   }
-  // Złote kółka
-  for (const g of rings) {
-    const sy = toScreenY(g.wy);
-    ctx.strokeStyle = '#ffd54a'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(g.x, sy, 11, 0, Math.PI * 2); ctx.stroke();
-  }
+  // Złote gwiazdki (nagroda: zbierasz je przelotem)
+  const t = performance.now() / 1000;
+  for (const g of rings) drawStar(g.x, toScreenY(g.wy), 13, t * 2 + g.x);
   // Pociski
   ctx.fillStyle = '#fff59d';
   for (const b of bullets) ctx.fillRect(b.x - 1.5, toScreenY(b.wy) - 6, 3, 12);
+}
+
+// Pięcioramienna gwiazdka, która się obraca i lekko pulsuje
+function drawStar(x, y, size, angle) {
+  const s = size * (1 + 0.1 * Math.sin(angle * 2));
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(angle);
+  ctx.shadowColor = '#fff59d'; ctx.shadowBlur = 12;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? s : s * 0.45;
+    const a = -Math.PI / 2 + i * Math.PI / 5;
+    ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+  }
+  ctx.closePath();
+  ctx.fillStyle = '#ffd54a'; ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = '#f57f17'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.restore();
+}
+
+// Napisy "+25", "+10" unoszące się po zdobyciu punktów
+function drawPopups() {
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 18px system-ui, sans-serif';
+  for (const p of popups) {
+    ctx.globalAlpha = Math.min(1, p.life * 2);
+    ctx.fillStyle = '#000'; ctx.fillText(p.text, p.x + 1, p.y + 1);
+    ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawPlane() {
@@ -353,9 +389,10 @@ function draw() {
   drawWorld();
   if (state !== 'over') drawPlane();
   drawParticles();
+  drawPopups();
   drawHud();
   if (state === 'start') overlay('Lot nad Rzeką', [
-    'Omijaj brzegi i wyspy, zbieraj kółka: +25',
+    'Omijaj brzegi i wyspy, łap gwiazdki: +25',
     'Spacja lub X: strzał, rozbita skała: +10',
     '← → na boki, ↑ szybciej, ↓ wolniej',
     'lub przesuwaj palcem po ekranie',
