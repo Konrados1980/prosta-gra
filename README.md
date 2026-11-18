@@ -17,3 +17,5 @@ Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie t
 - ↓ lot do tyłu (wolniej)
 - P pauza
 - Enter start i nowa gra
+
+Na telefonie: przesuwaj palcem w dowolnym miejscu ekranu gry, a samolot przesuwa się razem z palcem (palec go nie zasłania). Dotknięcie uruchamia grę i wznawia ją po pauzie.

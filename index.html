@@ -7,13 +7,15 @@
 <style>
   html, body { margin: 0; height: 100%; background: #1b2330; color: #eee; font-family: system-ui, sans-serif; }
   body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
-  canvas { background: #2f7d32; border: 3px solid #0d1117; border-radius: 6px; max-width: 95vw; max-height: 85vh; image-rendering: pixelated; }
+  body { overflow: hidden; }
+  canvas { background: #2f7d32; border: 3px solid #0d1117; border-radius: 6px; max-width: 95vw; max-height: 85vh; image-rendering: pixelated;
+           touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   p { margin: 0; font-size: 14px; opacity: .8; }
 </style>
 </head>
 <body>
 <canvas id="gra" width="480" height="640"></canvas>
-<p>Strzałki: sterowanie · P: pauza · Enter: start</p>
+<p>Klawiatura: strzałki · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry</p>
 
 <script>
 // ===== Ustawienia =====
@@ -38,6 +40,39 @@ addEventListener('keydown', e => {
   }
 });
 addEventListener('keyup', e => { keys[e.key] = false; });
+
+// ===== Sterowanie dotykiem (działa też myszą) =====
+// Przesuwasz palec w dowolnym miejscu gry, a samolot przesuwa się o tyle samo,
+// więc palec nie zasłania samolotu.
+let drag = null;   // { px, py, ax, ay } = gdzie był palec i samolot na początku ruchu
+function pointerPos(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height };
+}
+function anchorDrag(p) { drag = { px: p.x, py: p.y, ax: plane.x, ay: plane.y, tx: plane.x, ty: plane.y }; }
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  if (state === 'start' || state === 'over') newGame();
+  else if (state === 'pause') state = 'play';
+  anchorDrag(pointerPos(e));
+});
+canvas.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const p = pointerPos(e);
+  drag.tx = drag.ax + (p.x - drag.px);
+  drag.ty = drag.ay + (p.y - drag.py);
+  drag.last = p;
+});
+// po puszczeniu palca samolot jeszcze dolatuje do wskazanego miejsca
+const endDrag = () => { if (drag) drag.released = true; };
+canvas.addEventListener('pointerup', endDrag);
+canvas.addEventListener('pointercancel', endDrag);
+
+// Pauza, gdy przełączysz kartę lub aplikację na telefonie
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && state === 'play') state = 'pause';
+});
 
 // ===== Rzeka =====
 // Każdy odcinek ma: c = środek, w = połowa szerokości, iw = połowa szerokości wyspy (0 = brak)
@@ -104,6 +139,14 @@ function update(dt) {
   if (keys.ArrowRight) plane.x += side * dt;
   if (keys.ArrowUp) plane.y -= fwd * dt;
   if (keys.ArrowDown) plane.y += fwd * dt;
+  if (drag) {
+    // samolot goni pozycję palca, ale nie szybciej niż przy strzałkach (×1.3)
+    const dx = drag.tx - plane.x, dy = drag.ty - plane.y;
+    const mx = side * 1.3 * dt, my = fwd * 1.3 * dt;
+    plane.x += Math.max(-mx, Math.min(mx, dx));
+    plane.y += Math.max(-my, Math.min(my, dy));
+    if (drag.released && Math.abs(dx) <= mx && Math.abs(dy) <= my) drag = null;
+  }
   plane.x = Math.max(15, Math.min(W - 15, plane.x));
   plane.y = Math.max(120, Math.min(H - 40, plane.y));
 
@@ -160,6 +203,9 @@ function crash() {
   plane.x = channelCenter(wy);
   rocks = rocks.filter(o => Math.abs(o.wy - wy) > 250);
   invuln = 2;
+  // palec dalej na ekranie: liczymy ruch od nowa; palec puszczony: zatrzymujemy samolot
+  if (drag && !drag.released && drag.last) anchorDrag(drag.last);
+  else drag = null;
 }
 
 function burst(x, y, color, n) {
@@ -256,13 +302,14 @@ function draw() {
     'Omijaj brzegi, wyspy i skały.',
     'Zbieraj złote kółka: +25 pkt.',
     '← → na boki, ↑ szybciej, ↓ wolniej',
-    'Naciśnij Enter, aby zacząć'
+    'lub przesuwaj palcem po ekranie',
+    'Enter albo dotknij, aby zacząć'
   ]);
-  if (state === 'pause') overlay('Pauza', ['Naciśnij P, aby grać dalej']);
+  if (state === 'pause') overlay('Pauza', ['Naciśnij P albo dotknij, aby grać dalej']);
   if (state === 'over') overlay('Koniec gry', [
     'Twój wynik: ' + score,
     'Rekord: ' + best,
-    'Naciśnij Enter, aby zagrać jeszcze raz'
+    'Enter albo dotknij, aby zagrać jeszcze raz'
   ]);
 }
 
