@@ -41,7 +41,7 @@
 <canvas id="gra" width="480" height="640"></canvas>
 <p id="stopka">Strzałki: lot · Spacja lub X: strzał · P: pauza · Enter: start · F: pełny ekran
   <button id="pelnyEkran" type="button">⛶ Pełny ekran</button>
-  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 1.8.1 (zmiana imion)</small></p>
+  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 1.9 (nowa grafika)</small></p>
 <div id="panel" class="ukryty"><div class="okno" id="okno"></div></div>
 
 <script>
@@ -55,16 +55,37 @@ const SEG = 160;          // długość jednego odcinka rzeki (w pikselach świa
 // więc na szerokim monitorze widać więcej brzegów i rzeka ma więcej miejsca na zakręty.
 const H = 640;
 let W = 480;
+let renderScale = 1;      // ile pikseli ekranu przypada na 1 jednostkę gry
 const MIN_W = 480, MAX_W = 1280;
 function resize() {
   const footer = document.fullscreenElement ? 0 : document.getElementById('stopka').offsetHeight + 16;
   const availW = innerWidth - 8, availH = innerHeight - footer - 8;
+  const oldW = W;
   W = Math.round(Math.max(MIN_W, Math.min(MAX_W, H * availW / availH)));
-  canvas.width = W; canvas.height = H;
+  if (oldW !== W && segments) recenterWorld(oldW);
   const scale = Math.min(availW / W, availH / H);       // powiększamy planszę, żeby wypełniła okno
   canvas.style.width = Math.floor(W * scale) + 'px';
   canvas.style.height = Math.floor(H * scale) + 'px';
+  // Rysujemy w prawdziwej rozdzielczości ekranu (ostro, bez widocznych pikseli),
+  // a gra dalej liczy wszystko w swoich jednostkach W × H.
+  renderScale = Math.min(2.5, scale * (devicePixelRatio || 1));
+  canvas.width = Math.round(W * renderScale); canvas.height = Math.round(H * renderScale);
   if (plane) plane.x = Math.min(plane.x, W - 15);
+}
+// Po zmianie szerokości okna przesuwamy cały świat tak, żeby rzeka została na środku planszy
+// (inaczej po zwężeniu okna rzeka mogłaby uciec poza ekran).
+function recenterWorld(oldW) {
+  const dx = (W - oldW) / 2;
+  for (const s of segments) {
+    s.c += dx;
+    s.c = Math.max(s.w + 15, Math.min(W - s.w - 15, s.c));   // rzeka musi się zmieścić
+  }
+  for (const list of [obstacles, rings, cannons, balls, bullets, particles, popups]) {
+    for (const o of list || []) { o.x += dx; if (o.bx !== undefined) o.bx += dx; }
+  }
+  if (plane) { plane.x += dx; plane.px = plane.x; }
+  if (drag) drag = null;
+  if (state === 'play') invuln = Math.max(invuln, 1.5);     // chwila ochrony po zmianie okna
 }
 addEventListener('resize', resize);
 document.addEventListener('fullscreenchange', resize);
@@ -171,6 +192,7 @@ function makeSegment(i) {
   return { c, w, iw };
 }
 function seg(i) {
+  i = Math.max(0, i);       // przed startem (poniżej ekranu) rzeka wygląda jak na początku
   while (segments.length <= i) segments.push(makeSegment(segments.length));
   return segments[i];
 }
@@ -291,7 +313,7 @@ function newGame() {
   obstacles = []; rings = []; particles = []; segments = []; gt = 0;
   cannons = []; balls = []; nextCannon = CANNON_START;
   bullets = []; shotCd = 0; wantShot = false; popups = [];
-  plane = { x: W / 2, y: H - 110 };
+  plane = { x: W / 2, y: H - 110, roll: 0, boost: 0 };
   invuln = 1.5; nextSpawn = 400;
   state = 'play';
 }
@@ -322,7 +344,12 @@ function update(dt) {
       plane.y -= dy / d * f * dt;
     }
   }
+  // Przechył skrzydeł przy skręcaniu (tylko wygląd): liczony z tego, jak szybko samolot leci w bok
+  const vx = (plane.x - (plane.px ?? plane.x)) / Math.max(dt, 1e-6);
+  plane.roll += (Math.max(-1, Math.min(1, vx / 260)) - plane.roll) * Math.min(1, dt * 10);
+  plane.boost = keys.ArrowUp ? 1 : 0;
   plane.x = Math.max(15, Math.min(W - 15, plane.x));
+  plane.px = plane.x;
   plane.y = Math.max(120, Math.min(H - 40, plane.y));
 
   // Prędkość: rośnie z dystansem, a lot "do przodu" dodatkowo przyspiesza
@@ -403,7 +430,7 @@ function update(dt) {
 }
 
 function crash() {
-  burst(plane.x, plane.y, '#ff7043', 30);
+  explosion(plane.x, plane.y);
   lives--;
   if (lives <= 0) {
     endTurn();
@@ -481,7 +508,7 @@ function hitCannon(c, b) {
   if (c.hp > 0) { burst(b.x, sy, '#ffffff', 6); return; }
   c.dead = true;
   bonus += CANNON_POINTS;
-  burst(c.x, sy, '#ff7043', 30);
+  explosion(c.x, sy);
   popup(c.x, sy, '+' + CANNON_POINTS, '#ff7043', 30);
 }
 
@@ -503,29 +530,93 @@ function popup(x, y, text, color, size = 22) { popups.push({ x, y, text, color, 
 function burst(x, y, color, n) {
   for (let i = 0; i < n; i++) {
     const a = Math.random() * Math.PI * 2, v = 40 + Math.random() * 160;
-    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.4 + Math.random() * 0.5, color });
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0.4 + Math.random() * 0.5, color, size: 1.5 + Math.random() * 2.5 });
+  }
+}
+// Duży wybuch: błysk, rozchodzący się pierścień, ogień i dym
+function explosion(x, y) {
+  particles.push({ x, y, vx: 0, vy: 0, life: 0.5, ring: true });
+  burst(x, y, '#fff59d', 10);
+  burst(x, y, '#ff9800', 18);
+  burst(x, y, '#e64a19', 14);
+  for (let i = 0; i < 8; i++) {
+    const a = Math.random() * Math.PI * 2, v = 15 + Math.random() * 40;
+    particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, life: 0.8 + Math.random() * 0.5, color: '#616161', size: 5 + Math.random() * 5, smoke: true });
   }
 }
 
 // ===== Rysowanie =====
+// Stała "losowość": ta sama liczba dla tego samego miejsca, więc drzewa i fale nie skaczą
+const hash = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+
+// Kontur rzeki: lewy brzeg z góry na dół, prawy z dołu do góry; "half" mówi, jak szeroko
+function riverPath(rows, half) {
+  ctx.beginPath();
+  rows.forEach((p, i) => { const x = p.r.c - half(p.r); i ? ctx.lineTo(x, p.y) : ctx.moveTo(x, p.y); });
+  for (let i = rows.length - 1; i >= 0; i--) ctx.lineTo(rows[i].r.c + half(rows[i].r), rows[i].y);
+  ctx.closePath();
+}
+function edgeLine(rows, xOf) {
+  ctx.beginPath();
+  rows.forEach((p, i) => { const x = xOf(p.r); i ? ctx.lineTo(x, p.y) : ctx.moveTo(x, p.y); });
+}
+
 function drawWorld() {
-  ctx.fillStyle = '#2f7d32';                 // ląd
+  const anim = performance.now() / 1000;
+  // Ląd: trawa z jaśniejszymi i ciemniejszymi kępami
+  ctx.fillStyle = '#3d8b3d';
   ctx.fillRect(0, 0, W, H);
-  const step = 4;
-  for (let y = 0; y < H; y += step) {
-    const r = riverAt(toWorldY(y));
-    ctx.fillStyle = '#1e88e5';               // woda
-    ctx.fillRect(r.c - r.w, y, r.w * 2, step);
-    ctx.fillStyle = '#90caf9';               // jasny brzeg wody
-    ctx.fillRect(r.c - r.w, y, 3, step);
-    ctx.fillRect(r.c + r.w - 3, y, 3, step);
-    if (r.iw > 2) {
-      ctx.fillStyle = '#c9b27c';             // piasek wyspy
-      ctx.fillRect(r.c - r.iw, y, r.iw * 2, step);
-      ctx.fillStyle = '#388e3c';             // trawa na wyspie
-      ctx.fillRect(r.c - r.iw + 5, y, Math.max(0, r.iw * 2 - 10), step);
+  const PATCH = 70;
+  for (let i = Math.floor(cam / PATCH) - 1; i <= Math.floor((cam + H) / PATCH) + 1; i++) {
+    for (let k = 0; k < 3 + W / 300; k++) {
+      const x = hash(i, k) * W, sy = toScreenY(i * PATCH + hash(i, k + 9) * PATCH);
+      ctx.fillStyle = hash(i, k + 3) < 0.5 ? 'rgba(0,60,0,.13)' : 'rgba(170,220,120,.10)';
+      ctx.beginPath(); ctx.ellipse(x, sy, 20 + hash(i, k + 5) * 30, 12 + hash(i, k + 7) * 16, 0, 0, Math.PI * 2); ctx.fill();
     }
   }
+
+  // Punkty brzegu co 6 jednostek (z zapasem poza ekranem)
+  const rows = [];
+  for (let y = -12; y <= H + 12; y += 6) rows.push({ y, r: riverAt(toWorldY(y)) });
+
+  // Piaszczysta plaża, woda, głębia na środku
+  riverPath(rows, r => r.w + 8);  ctx.fillStyle = '#d9c48f'; ctx.fill();
+  riverPath(rows, r => r.w + 3);  ctx.fillStyle = '#b8a26a'; ctx.fill();
+  riverPath(rows, r => r.w);      ctx.fillStyle = '#2196f3'; ctx.fill();
+  riverPath(rows, r => r.w * 0.6); ctx.fillStyle = 'rgba(13,71,161,.28)'; ctx.fill();
+  riverPath(rows, r => r.w * 0.3); ctx.fillStyle = 'rgba(13,71,161,.18)'; ctx.fill();
+  // Piana przy brzegach
+  ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  edgeLine(rows, r => r.c - r.w + 1); ctx.stroke();
+  edgeLine(rows, r => r.c + r.w - 1); ctx.stroke();
+
+  // Fale: krótkie jasne łuki, które lekko się kołyszą
+  const WAVE = 44;
+  ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+  for (let i = Math.floor(cam / WAVE) - 1; i <= Math.floor((cam + H) / WAVE) + 1; i++) {
+    for (let k = 0; k < 4; k++) {
+      const wy = i * WAVE + hash(i, k + 20) * WAVE, r = riverAt(wy);
+      const x = r.c + (hash(i, k + 30) * 2 - 1) * r.w * 0.8 + Math.sin(anim * 1.5 + i + k) * 4;
+      if (!inWater(x - 10, wy) || !inWater(x + 10, wy)) continue;
+      const sy = toScreenY(wy);
+      ctx.beginPath(); ctx.arc(x, sy - 6, 8, Math.PI * 0.2, Math.PI * 0.8); ctx.stroke();
+    }
+  }
+
+  // Wyspy: każdy ciągły kawałek z wyspą rysujemy jako osobny gładki kształt
+  let run = [];
+  const flush = () => {
+    if (run.length > 1) {
+      riverPath(run, r => r.iw + 6 * Math.min(1, r.iw / 6)); ctx.fillStyle = '#d9c48f'; ctx.fill();   // końce wyspy zwężają się w szpic
+      ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2.5; ctx.stroke();
+      riverPath(run, r => Math.max(0, r.iw - 1)); ctx.fillStyle = '#3d8b3d'; ctx.fill();
+    }
+    run = [];
+  };
+  for (const p of rows) { if (p.r.iw > 0.5) run.push(p); else flush(); }
+  flush();
+
+  drawTrees();
   // Przeszkody (wiry najpierw, bo leżą "pod" resztą)
   for (const o of obstacles) if (o.type === 'whirl') drawObstacle(o);
   for (const o of obstacles) if (o.type !== 'whirl') drawObstacle(o);
@@ -540,12 +631,43 @@ function drawWorld() {
   // Złote gwiazdki (nagroda: zbierasz je przelotem)
   const t = performance.now() / 1000;
   for (const g of rings) drawStar(g.x, toScreenY(g.wy), 16, t * 2 + g.x);
-  // Pociski
-  ctx.fillStyle = '#fff59d';
-  for (const b of bullets) ctx.fillRect(b.x - 1.5, toScreenY(b.wy) - 6, 3, 12);
+  // Pociski: świecące smugi
+  ctx.save();
+  ctx.shadowColor = '#ffeb3b'; ctx.shadowBlur = 8; ctx.lineCap = 'round';
+  for (const b of bullets) {
+    const sy = toScreenY(b.wy);
+    const g = ctx.createLinearGradient(0, sy - 8, 0, sy + 10);
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, '#fff176'); g.addColorStop(1, 'rgba(255,152,0,0)');
+    ctx.strokeStyle = g; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(b.x, sy - 8); ctx.lineTo(b.x, sy + 10); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// Drzewa na lądzie i na wyspach (z cieniem); stoją zawsze w tych samych miejscach świata
+function drawTrees() {
+  const ROW = 30;
+  for (let i = Math.floor(cam / ROW) - 2; i <= Math.floor((cam + H) / ROW) + 2; i++) {
+    const n = Math.round((2 + hash(i, 1) * 3) * W / 480);
+    for (let k = 0; k < n; k++) {
+      const x = hash(i, k + 40) * W, wy = i * ROW + hash(i, k + 60) * ROW;
+      const size = 8 + hash(i, k + 80) * 9;
+      // nie stawiamy drzew na plaży ani w wodzie
+      const r = riverAt(wy), d = Math.abs(x - r.c);
+      const onLand = d > r.w + size + 10, onIsland = r.iw > 0 && d < r.iw - size - 3;
+      if (!onLand && !onIsland) continue;
+      const y = toScreenY(wy);
+      const dark = hash(i, k + 90) < 0.3;          // część drzew to ciemne iglaki
+      circle(x + 5, y + 6, size, 'rgba(0,0,0,.22)');                         // cień
+      circle(x, y, size, dark ? '#1b5e20' : '#2e7d32');
+      circle(x - size * 0.25, y - size * 0.25, size * 0.65, dark ? '#2e7d32' : '#43a047');
+      circle(x - size * 0.4, y - size * 0.4, size * 0.3, dark ? '#388e3c' : '#66bb6a');
+    }
+  }
 }
 
 function circle(x, y, r, color) {
+  if (!(r > 0)) return;          // ujemny promień wywróciłby rysowanie (i zatrzymał grę)
   ctx.fillStyle = color;
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
 }
@@ -655,18 +777,81 @@ function drawPopups() {
   ctx.globalAlpha = 1;
 }
 
+// Nowoczesny odrzutowiec widziany z góry (nosem do góry). sx = zwężenie skrzydeł przy przechyle.
+function jetPath(part, sx) {
+  ctx.beginPath();
+  if (part === 'body') {            // smukły kadłub ze szpiczastym nosem
+    ctx.moveTo(0, -22);
+    ctx.bezierCurveTo(3, -18, 4.5, -10, 4.5, -2);
+    ctx.lineTo(4, 12); ctx.lineTo(2.5, 16); ctx.lineTo(-2.5, 16); ctx.lineTo(-4, 12);
+    ctx.lineTo(-4.5, -2);
+    ctx.bezierCurveTo(-4.5, -10, -3, -18, 0, -22);
+  }
+  if (part === 'wings') {           // skrzydła w kształcie delty, odchylone do tyłu
+    ctx.moveTo(4, -6); ctx.lineTo(18 * sx, 7); ctx.lineTo(18 * sx, 10); ctx.lineTo(4, 7);
+    ctx.closePath(); ctx.moveTo(-4, -6); ctx.lineTo(-18 * sx, 7); ctx.lineTo(-18 * sx, 10); ctx.lineTo(-4, 7);
+  }
+  if (part === 'canards') {         // małe przednie skrzydełka
+    ctx.moveTo(3.5, -12); ctx.lineTo(8 * sx, -8); ctx.lineTo(3.8, -7);
+    ctx.closePath(); ctx.moveTo(-3.5, -12); ctx.lineTo(-8 * sx, -8); ctx.lineTo(-3.8, -7);
+  }
+  if (part === 'tail') {            // statecznik z tyłu
+    ctx.moveTo(3, 9); ctx.lineTo(9 * sx, 15); ctx.lineTo(9 * sx, 17); ctx.lineTo(2.5, 15.5);
+    ctx.closePath(); ctx.moveTo(-3, 9); ctx.lineTo(-9 * sx, 15); ctx.lineTo(-9 * sx, 17); ctx.lineTo(-2.5, 15.5);
+  }
+  ctx.closePath();
+}
+
 function drawPlane() {
   if (invuln > 0 && Math.floor(invuln * 10) % 2 === 0) return;   // miganie podczas ochrony
-  const { x, y } = plane;
-  ctx.fillStyle = '#ffeb3b';
-  ctx.beginPath();                        // kadłub
-  ctx.moveTo(x, y - 18); ctx.lineTo(x + 4, y - 8); ctx.lineTo(x + 4, y + 12);
-  ctx.lineTo(x - 4, y + 12); ctx.lineTo(x - 4, y - 8); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = '#f44336';
-  ctx.fillRect(x - 16, y - 2, 32, 6);     // skrzydła
-  ctx.fillRect(x - 8, y + 9, 16, 4);      // ogon
-  ctx.fillStyle = '#263238';
-  ctx.fillRect(x - 2, y - 10, 4, 5);      // kabina
+  const { x, y } = plane, roll = plane.roll || 0;
+  const sx = 1 - Math.abs(roll) * 0.28;                // przechylone skrzydła wyglądają na krótsze
+
+  // Cień na wodzie (przesunięty, jakby słońce świeciło z lewej góry)
+  ctx.save();
+  ctx.translate(x + 16, y + 24); ctx.scale(0.85, 0.85); ctx.rotate(roll * 0.15);
+  ctx.fillStyle = 'rgba(0,0,0,.22)';
+  for (const p of ['wings', 'tail', 'canards', 'body']) { jetPath(p, sx); ctx.fill(); }
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(roll * 0.15);
+
+  // Płomień z silnika (dłuższy, gdy lecisz do przodu)
+  const flame = 9 + Math.random() * 5 + (plane.boost || 0) * 8;
+  const fg = ctx.createLinearGradient(0, 15, 0, 15 + flame);
+  fg.addColorStop(0, '#ffffff'); fg.addColorStop(0.25, '#ffeb3b'); fg.addColorStop(0.6, '#ff9800'); fg.addColorStop(1, 'rgba(255,87,34,0)');
+  ctx.fillStyle = fg;
+  ctx.beginPath(); ctx.moveTo(-2.6, 15.5); ctx.quadraticCurveTo(0, 15 + flame * 1.1, 2.6, 15.5); ctx.fill();
+
+  // Skrzydła i statecznik: szare z jaśniejszą krawędzią
+  const wg = ctx.createLinearGradient(0, -6, 0, 12);
+  wg.addColorStop(0, '#b0bec5'); wg.addColorStop(1, '#607d8b');
+  ctx.fillStyle = wg; ctx.strokeStyle = '#37474f'; ctx.lineWidth = 0.8; ctx.lineJoin = 'round';
+  jetPath('wings', sx); ctx.fill(); ctx.stroke();
+  jetPath('tail', sx); ctx.fill(); ctx.stroke();
+  jetPath('canards', sx); ctx.fill(); ctx.stroke();
+  // pomarańczowe końcówki skrzydeł
+  ctx.fillStyle = '#ff6d00';
+  ctx.fillRect(18 * sx - 2.5, 6.5, 2.5, 3.5); ctx.fillRect(-18 * sx, 6.5, 2.5, 3.5);
+
+  // Kadłub: biało-srebrny, z cieniowaniem z boków
+  const bg = ctx.createLinearGradient(-5, 0, 5, 0);
+  bg.addColorStop(0, '#90a4ae'); bg.addColorStop(0.45, '#ffffff'); bg.addColorStop(1, '#78909c');
+  ctx.fillStyle = bg; ctx.strokeStyle = '#455a64';
+  jetPath('body', sx); ctx.fill(); ctx.stroke();
+  // pomarańczowy pas wzdłuż kadłuba
+  ctx.strokeStyle = '#ff6d00'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(0, 13); ctx.stroke();
+
+  // Kabina pilota: szklana, z odblaskiem
+  const cg = ctx.createLinearGradient(0, -16, 0, -5);
+  cg.addColorStop(0, '#b3e5fc'); cg.addColorStop(0.5, '#0288d1'); cg.addColorStop(1, '#01579b');
+  ctx.fillStyle = cg;
+  ctx.beginPath(); ctx.ellipse(0, -10, 2.4, 5.5, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.8)';
+  ctx.beginPath(); ctx.ellipse(-0.8, -12, 0.7, 2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 
 function drawHud() {
@@ -692,9 +877,19 @@ function drawHud() {
 
 function drawParticles() {
   for (const p of particles) {
-    ctx.globalAlpha = Math.max(0, p.life * 1.5);
-    ctx.fillStyle = p.color;
-    ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+    if (p.ring) {                                   // fala uderzeniowa
+      ctx.globalAlpha = Math.max(0, p.life * 1.6);
+      ctx.strokeStyle = '#fff3e0'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(p.x, p.y, (0.5 - p.life) * 140 + 6, 0, Math.PI * 2); ctx.stroke();
+      continue;
+    }
+    if (p.smoke) {                                  // dym rośnie i blednie
+      ctx.globalAlpha = Math.max(0, p.life * 0.5);
+      circle(p.x, p.y, p.size * (2 - p.life), p.color);
+      continue;
+    }
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life * 1.8));
+    circle(p.x, p.y, (p.size || 2) * (0.5 + p.life), p.color);
   }
   ctx.globalAlpha = 1;
 }
@@ -710,6 +905,7 @@ function overlay(title, lines) {
 }
 
 function draw() {
+  ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
   drawWorld();
   if (state === 'play' || state === 'pause') drawPlane();
   drawParticles();
@@ -735,9 +931,13 @@ function loop(now) {
   const dt = Math.min((now - last) / 1000, 0.05);
   last = now;
   if (state === 'play') update(dt);
-  else for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
-  draw();
+  else {
+    for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+    particles = particles.filter(p => p.life > 0);
+  }
+  // nawet gdyby rysowanie kiedyś rzuciło błąd, pętla gry działa dalej
   requestAnimationFrame(loop);
+  try { draw(); } catch (e) { console.error(e); }
 }
 
 // ===== Gracze, tury i tabela rekordów =====
