@@ -33,6 +33,10 @@ Na telefonie: przesuwaj palcem w dowolnym miejscu ekranu gry, a samolot przesuwa
 | Boja | kołysze się na boki | 1 | 20 |
 | Wir | nie rozbija samolotu, ale wciąga go do środka | 2 | 25 |
 | Głaz | stoi w miejscu, pęka po każdym trafieniu | 3 | 50 |
+| Armatka (na brzegu) | strzela kulami w poprzek rzeki; czerwona lufa = zaraz strzeli | 2 | 40 |
+| Kula z armatki | leci poziomo przez rzekę, rozbija samolot | 1 | 5 |
 | Gwiazdka | nagroda – zbierasz ją przelotem | – | 25 |
+
+Armatki pojawiają się od ok. 200 punktów dystansu i strzelają tylko wtedy, gdy są przed samolotem, więc zawsze widać je wcześniej.
 
 Przeszkody pojawiają się tylko na szerokich fragmentach rzeki i zawsze zostawiają wolny przejazd. Im dalej lecisz, tym więcej trudniejszych przeszkód (głazy od ok. 150 punktów dystansu, wiry od ok. 300).

@@ -20,7 +20,7 @@
 <canvas id="gra" width="480" height="640"></canvas>
 <p id="stopka">Strzałki: lot · Spacja lub X: strzał · P: pauza · Enter: start · F: pełny ekran
   <button id="pelnyEkran" type="button">⛶ Pełny ekran</button>
-  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 1.6 (szeroki widok)</small></p>
+  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 1.7 (armatki)</small></p>
 
 <script>
 // ===== Ustawienia =====
@@ -60,6 +60,7 @@ let cam, plane, lives, score, bonus, obstacles, rings, particles, segments, invu
 let gt = 0;               // czas gry w sekundach (do animacji przeszkód)
 let bullets, shotCd;      // pociski samolotu i czas do następnego strzału
 let popups = [];          // unoszące się napisy z punktami
+let cannons = [], balls = [], nextCannon = 0;   // armatki na brzegu i ich kule
 const SHOT_DELAY = 0.2;   // co ile sekund można strzelić (przy trzymanej Spacji)
 const SHOT_SPEED = 550;   // jak szybko pocisk leci w górę ekranu
 let best = 0;
@@ -254,6 +255,7 @@ const toWorldY = sy => cam + (H - sy);
 function newGame() {
   cam = 0; lives = 3; score = 0; bonus = 0;
   obstacles = []; rings = []; particles = []; segments = []; gt = 0;
+  cannons = []; balls = []; nextCannon = CANNON_START;
   bullets = []; shotCd = 0; wantShot = false; popups = [];
   plane = { x: W / 2, y: H - 110 };
   invuln = 1.5; nextSpawn = 400;
@@ -307,15 +309,25 @@ function update(dt) {
   // Pociski lecą w górę; znikają poza ekranem albo nad lądem
   for (const b of bullets) {
     b.wy += (speed + SHOT_SPEED) * dt;
-    if (toScreenY(b.wy) < 34) b.dead = true;
-    else if (!inWater(b.x, b.wy)) { b.dead = true; burst(b.x, toScreenY(b.wy), '#a1887f', 5); }
-    else {
-      const o = obstacles.find(o => !o.dead && bodyDist(o, b.x, b.wy) < (o.type === 'whirl' ? 8 : 4));
-      if (o) hitObstacle(o, b);
+    if (toScreenY(b.wy) < 34) { b.dead = true; continue; }
+    // armatki stoją na brzegu, więc sprawdzamy je przed lądem
+    const cn = cannons.find(c => !c.dead && Math.hypot(c.x - b.x, c.wy - b.wy) < 18);
+    if (cn) { hitCannon(cn, b); continue; }
+    const ball = balls.find(k => !k.dead && Math.hypot(k.x - b.x, k.wy - b.wy) < BALL_R + 5);
+    if (ball) {
+      ball.dead = true; b.dead = true; bonus += BALL_POINTS;
+      burst(ball.x, toScreenY(ball.wy), '#bdbdbd', 10);
+      popup(ball.x, toScreenY(ball.wy), '+' + BALL_POINTS, '#bdbdbd', 18);
+      continue;
     }
+    if (!inWater(b.x, b.wy)) { b.dead = true; burst(b.x, toScreenY(b.wy), '#a1887f', 5); continue; }
+    const o = obstacles.find(o => !o.dead && bodyDist(o, b.x, b.wy) < (o.type === 'whirl' ? 8 : 4));
+    if (o) hitObstacle(o, b);
   }
   bullets = bullets.filter(b => !b.dead);
   obstacles = obstacles.filter(o => !o.dead);
+
+  updateCannons(dt);
 
   // Nowe przeszkody i gwiazdki pojawiają się nad ekranem
   while (nextSpawn < cam + H + 60) {
@@ -347,6 +359,7 @@ function update(dt) {
     const pts = [[0, -16], [-15, 2], [15, 2], [0, 12], [-6, 12], [6, 12]];
     let hit = pts.some(([dx, dy]) => !inWater(plane.x + dx, toWorldY(plane.y + dy)));
     if (!hit) hit = obstacles.some(o => o.type !== 'whirl' && bodyDist(o, plane.x, pwy) < 11);
+    if (!hit) hit = balls.some(k => Math.hypot(k.x - plane.x, k.wy - pwy) < BALL_R + 11);
     if (hit) crash();
   }
 
@@ -368,10 +381,75 @@ function crash() {
   const wy = toWorldY(plane.y);
   plane.x = channelCenter(wy);
   obstacles = obstacles.filter(o => Math.abs(o.wy - wy) > 250);
+  balls = [];
+  for (const c of cannons) c.cd = Math.max(c.cd, 2);   // armatki dają chwilę na otrząśnięcie się
   invuln = 2;
   // palec dalej na ekranie: liczymy ruch od nowa; palec puszczony: zatrzymujemy samolot
   if (drag && !drag.released && drag.last) anchorDrag(drag.last);
   else drag = null;
+}
+
+// ===== Armatki na brzegu =====
+const CANNON_START = 2000;    // pierwsza armatka po ok. 200 punktach dystansu
+const CANNON_HP = 2, CANNON_POINTS = 40, BALL_POINTS = 5;
+const BALL_R = 6, BALL_SPEED = 190;
+const CHARGE_TIME = 0.6;      // tyle sekund lufa świeci na czerwono przed strzałem
+
+// Stawia armatkę na lądzie tuż przy brzegu (lewym albo prawym), lufą w stronę rzeki
+function makeCannon(wy) {
+  const r = riverAt(wy);
+  const sides = Math.random() < 0.5 ? [-1, 1] : [1, -1];
+  for (const side of sides) {
+    const x = side < 0 ? r.c - r.w - 22 : r.c + r.w + 22;
+    if (x < 20 || x > W - 20) continue;
+    // cała armatka musi stać na lądzie, także trochę wyżej i niżej
+    if ([-16, 0, 16].some(d => inWater(x - 14, wy + d) || inWater(x + 14, wy + d))) continue;
+    // cd = czas do pierwszego strzału (zawsze dłuższy niż czerwone ostrzeżenie)
+    return { x, wy, dir: -side, hp: CANNON_HP, cd: CHARGE_TIME + 0.1 + Math.random() * 0.5, flash: 0 };
+  }
+  return null;
+}
+
+function updateCannons(dt) {
+  // nowe armatki: coraz częściej im dalej lecisz
+  while (cam > CANNON_START - H && nextCannon < cam + H + 60) {
+    const c = makeCannon(nextCannon);
+    if (c) cannons.push(c);
+    nextCannon += Math.max(500, 1300 - cam * 0.01) * (0.7 + Math.random() * 0.6);
+  }
+  for (const c of cannons) {
+    c.flash = Math.max(0, c.flash - dt);
+    const sy = toScreenY(c.wy);
+    // strzela tylko, gdy jest na ekranie i wyraźnie przed samolotem (uczciwie: widzisz ją wcześniej)
+    if (sy < 60 || sy > plane.y - 60) continue;
+    c.cd -= dt;
+    if (c.cd <= 0) {
+      balls.push({ x: c.x + c.dir * 22, wy: c.wy, vx: c.dir * BALL_SPEED, wet: false });
+      burst(c.x + c.dir * 22, sy, '#ffcc80', 8);
+      c.cd = 2.2 + Math.random() * 1.3;
+    }
+  }
+  // kule lecą poziomo przez rzekę i rozbijają się na drugim brzegu albo na wyspie
+  for (const k of balls) {
+    k.x += k.vx * dt;
+    const water = inWater(k.x, k.wy);
+    if (water) k.wet = true;
+    if (k.x < -20 || k.x > W + 20) k.dead = true;
+    else if (k.wet && !water) { k.dead = true; burst(k.x, toScreenY(k.wy), '#a1887f', 8); }
+  }
+  balls = balls.filter(k => !k.dead && toScreenY(k.wy) < H + 20);
+  cannons = cannons.filter(c => !c.dead && toScreenY(c.wy) < H + 40);
+}
+
+function hitCannon(c, b) {
+  const sy = toScreenY(c.wy);
+  b.dead = true;
+  c.hp--; c.flash = 0.12;
+  if (c.hp > 0) { burst(b.x, sy, '#ffffff', 6); return; }
+  c.dead = true;
+  bonus += CANNON_POINTS;
+  burst(c.x, sy, '#ff7043', 30);
+  popup(c.x, sy, '+' + CANNON_POINTS, '#ff7043', 30);
 }
 
 // Trafienie przeszkody: odejmuje 1 punkt wytrzymałości; przy zerze przeszkoda pęka i daje punkty
@@ -418,6 +496,14 @@ function drawWorld() {
   // Przeszkody (wiry najpierw, bo leżą "pod" resztą)
   for (const o of obstacles) if (o.type === 'whirl') drawObstacle(o);
   for (const o of obstacles) if (o.type !== 'whirl') drawObstacle(o);
+  for (const c of cannons) drawCannon(c);
+  for (const k of balls) {
+    const sy = toScreenY(k.wy);
+    ctx.fillStyle = 'rgba(255,255,255,.35)';                          // smuga za kulą
+    ctx.fillRect(k.vx > 0 ? k.x - 22 : k.x, sy - 2, 22, 4);
+    circle(k.x, sy, BALL_R, '#212121');
+    circle(k.x - 2, sy - 2, 2, '#757575');
+  }
   // Złote gwiazdki (nagroda: zbierasz je przelotem)
   const t = performance.now() / 1000;
   for (const g of rings) drawStar(g.x, toScreenY(g.wy), 16, t * 2 + g.x);
@@ -430,6 +516,22 @@ function circle(x, y, r, color) {
   ctx.fillStyle = color;
   ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
 }
+function drawCannon(c) {
+  const x = c.x, y = toScreenY(c.wy), d = c.dir;
+  ctx.fillStyle = '#5d4037';                                          // drewniana podstawa
+  ctx.fillRect(x - 14, y - 10, 28, 20);
+  // lufa: świeci na czerwono, gdy armatka zaraz wystrzeli
+  const sy = y;
+  const aiming = sy >= 60 && sy <= plane.y - 60 && c.cd < CHARGE_TIME;
+  ctx.fillStyle = aiming && Math.floor(gt * 12) % 2 === 0 ? '#ff1744' : '#37474f';
+  ctx.fillRect(d > 0 ? x : x - 24, y - 5, 24, 10);
+  circle(x, y, 9, '#263238');                                         // korpus
+  circle(x - 8, y + 10, 4, '#3e2723'); circle(x + 8, y + 10, 4, '#3e2723');   // kółka
+  if (c.hp < CANNON_HP) { ctx.strokeStyle = '#ffab91'; ctx.lineWidth = 2;  // rysa po trafieniu
+    ctx.beginPath(); ctx.moveTo(x - 5, y - 6); ctx.lineTo(x + 2, y); ctx.lineTo(x - 2, y + 6); ctx.stroke(); }
+  if (c.flash > 0) { ctx.globalAlpha = 0.7; circle(x, y, 14, '#fff'); ctx.globalAlpha = 1; }
+}
+
 function drawObstacle(o) {
   const x = o.x, y = toScreenY(o.wy), r = o.r;
   if (o.type === 'rock') {
@@ -574,6 +676,8 @@ function draw() {
     'Spacja lub X: strzał. Punkty za rozbicie:',
     'skała 10 · pień 15 · boja 20 · wir 25 · głaz 50',
     'Głaz: 3 trafienia, wir: 2 (wciąga samolot!)',
+    'Armatka na brzegu: 2 trafienia, 40 pkt',
+    'czerwona lufa = zaraz strzeli! (kula: 5 pkt)',
     '← → na boki, ↑ szybciej, ↓ wolniej',
     'Enter albo dotknij, aby zacząć'
   ]);
