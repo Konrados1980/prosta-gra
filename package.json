@@ -1,0 +1,26 @@
+{
+  "name": "prosta-gra",
+  "private": true,
+  "type": "commonjs",
+  "description": "Lot nad Rzeką – prosta zręcznościówka w przeglądarce (HTML + JavaScript)",
+  "workflowGates": {
+    "requiredScripts": ["lint", "test"],
+    "note": "typecheck i build dojdą po podziale index.html na moduły (ParkingLot.md)"
+  },
+  "scripts": {
+    "lint": "node scripts/check-game-syntax.js",
+    "test": "node --test tests/game.test.js",
+    "task:new": "node scripts/task-lifecycle.js new",
+    "task:close": "node scripts/task-lifecycle.js close",
+    "gate:starter": "npm run check:task && npm run check:task-freshness && npm run check:project-gates && npm run check:import-boundaries",
+    "gate:local": "git rev-parse --verify HEAD && npm run check:task && npm run check:task-freshness && npm run check:scope && npm run check:diff-size && npm run check:godfiles && npm run check:project-gates && npm run check:import-boundaries",
+    "gate:pr": "npm run gate:local",
+    "check:task": "node scripts/check-task.js",
+    "check:task-freshness": "node scripts/check-task-freshness.js",
+    "check:scope": "node scripts/check-scope.js",
+    "check:diff-size": "node scripts/check-diff-size.js",
+    "check:godfiles": "node scripts/check-godfiles.js",
+    "check:project-gates": "node scripts/check-project-gates.js",
+    "check:import-boundaries": "node scripts/check-import-boundaries.js"
+  }
+}

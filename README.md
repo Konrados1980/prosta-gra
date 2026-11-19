@@ -46,3 +46,24 @@ Na telefonie: przesuwaj palcem w dowolnym miejscu ekranu gry, a samolot przesuwa
 Armatki pojawiają się od ok. 200 punktów dystansu i strzelają tylko wtedy, gdy są przed samolotem, więc zawsze widać je wcześniej.
 
 Przeszkody pojawiają się tylko na szerokich fragmentach rzeki i zawsze zostawiają wolny przejazd. Im dalej lecisz, tym więcej trudniejszych przeszkód (głazy od ok. 150 punktów dystansu, wiry od ok. 300).
+
+## Praca nad projektem
+
+Projekt rozwijamy z AI według stałych zasad zapisanych w repo:
+
+- [AGENTS.md](AGENTS.md) – główne zasady: tryby pracy, formularz zadania, bramki jakości.
+- [CLAUDE.md](CLAUDE.md) – jak współpracujemy: przebieg zmiany, definicja „gotowe”, format raportu.
+- [tasks/lessons.md](tasks/lessons.md) – wnioski z błędów zamienione w reguły; [ParkingLot.md](ParkingLot.md) – odłożone pomysły.
+- [tasks/todo.md](tasks/todo.md) – bieżące zadanie; zamknięte zadania są w `tasks/archive/`.
+
+Potrzebny jest Node.js (bez instalowania paczek). Najważniejsze komendy (na Windows w PowerShell możesz użyć `npm.cmd`):
+
+```sh
+npm test                 # testy logiki gry
+npm run lint             # sprawdzenie składni kodu gry
+npm run task:new -- --slug opis --mode FEATURE --files index.html --outcome "Cel" --success "Warunek"
+npm run gate:local       # wszystkie bramki przed zamknięciem zadania
+npm run task:close -- --result PASS
+```
+
+Szkielet workflow (skrypty w `scripts/`, `docs/`, formularz zadania) pochodzi z projektu [paulcrowski/jakapiosenka](https://github.com/paulcrowski/jakapiosenka) Paula Crowa (klub „PoProstuKoduj”), udostępnionego do nauki. Nasze zmiany: `check-project-gates.js` czyta listę wymaganych komend z `package.json` (`workflowGates`), dodaliśmy `scripts/check-game-syntax.js` i testy w `tests/`.
