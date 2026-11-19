@@ -1,0 +1,57 @@
+// tury graczy i ekran wyników
+function startFromMenu() {
+  if (state !== 'menu') return;
+  readNames();
+  players = menuNames.slice(0, menuCount).map((n, i) => ({ name: n.trim() || `Gracz ${i + 1}`, score: 0 }));
+  saveRecords();
+  if (document.activeElement) document.activeElement.blur();   // żeby Spacja nie "klikała" przycisków
+  startRound();
+}
+function startRound() {
+  for (const p of players) p.score = 0;
+  turn = 0;
+  startTurn();
+}
+function startTurn() {
+  hidePanel();
+  for (const k in keys) keys[k] = false;
+  newGame();
+}
+// Koniec tury: zapisujemy wynik i przechodzimy do następnego gracza albo do wyników
+function endTurn() {
+  const p = players[turn];
+  p.score = score;
+  p.newRecord = score > (personal[p.name] || 0);
+  if (p.newRecord) personal[p.name] = score;
+  const d = new Date();
+  const entry = { name: p.name, score, date: `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}` };
+  p.entry = entry;
+  if (score > 0) { topList.push(entry); topList.sort((a, b) => b.score - a.score); topList = topList.slice(0, 10); }
+  saveRecords();
+  turn++;
+  if (turn < players.length) state = 'next';
+  else showResults();
+}
+function showResults() {
+  state = 'results';
+  lastRound = [...players].sort((a, b) => b.score - a.score);
+  const rows = lastRound.map((p, i) =>
+    `<tr${i === 0 && players.length > 1 ? ' class="zwyciezca"' : ''}><td>${i === 0 && players.length > 1 ? '🏆' : i + 1 + '.'}</td><td>${esc(p.name)}</td>` +
+    `<td class="liczba">${p.score}</td><td class="liczba">${personal[p.name] || 0}${p.newRecord ? '<span class="nowy">nowy rekord!</span>' : ''}</td></tr>`).join('');
+  showPanel(`
+    <h1>${players.length > 1 ? 'Wyniki rundy' : 'Koniec gry'}</h1>
+    <table><tr><th>#</th><th>Gracz</th><th class="liczba">Punkty</th><th class="liczba">Rekord gracza</th></tr>${rows}</table>
+    <div class="rzad" style="margin-top:14px">
+      <button type="button" class="glowny" id="againBtn">↻ Zagraj jeszcze raz (Enter)</button>
+      <button type="button" id="menuBtn">✎ Zmień graczy / imiona (M)</button>
+    </div>
+    <h2>🏆 Najlepsze wyniki (top 10)</h2>
+    ${topTable(10, players.map(p => p.entry))}
+    <div class="rzad" style="margin-top:12px"><button type="button" id="clearBtn">Wyczyść rekordy</button></div>
+  `);
+  document.getElementById('againBtn').onclick = () => { document.activeElement.blur(); startRound(); };
+  document.getElementById('menuBtn').onclick = showMenu;
+  document.getElementById('clearBtn').onclick = () => {
+    if (confirm('Na pewno usunąć wszystkie rekordy? Tego nie da się cofnąć.')) { topList = []; personal = {}; saveRecords(); showResults(); }
+  };
+}
