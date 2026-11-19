@@ -18,6 +18,9 @@ Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie t
 - Spacja lub X strzał (można trzymać)
 - P pauza
 - Enter start i nowa gra
+- F pełny ekran (albo przycisk „Pełny ekran” pod grą; wyjście: F lub Esc)
+
+Plansza dopasowuje się do szerokości okna: na szerokim monitorze widać więcej, a rzeka jest trochę szersza.
 
 Na telefonie: przesuwaj palcem w dowolnym miejscu ekranu gry, a samolot przesuwa się razem z palcem (palec go nie zasłania). Dotknięcie uruchamia grę i wznawia ją po pauzie.
 

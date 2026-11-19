@@ -6,23 +6,53 @@
 <title>Lot nad Rzeką</title>
 <style>
   html, body { margin: 0; height: 100%; background: #1b2330; color: #eee; font-family: system-ui, sans-serif; }
-  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
-  body { overflow: hidden; }
-  canvas { background: #2f7d32; border: 3px solid #0d1117; border-radius: 6px; max-width: 95vw; max-height: 85vh; image-rendering: pixelated;
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; }
+  canvas { display: block; background: #2f7d32; border: 2px solid #0d1117; border-radius: 6px;
            touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-  p { margin: 0; font-size: 14px; opacity: .8; }
+  #stopka { margin: 0; font-size: 13px; opacity: .85; text-align: center; padding: 0 8px; }
+  #stopka button { font: inherit; padding: 2px 10px; margin-left: 6px; border-radius: 4px; border: 1px solid #556; background: #2b3545; color: #eee; cursor: pointer; }
+  /* na pełnym ekranie chowamy stopkę, żeby gra zajęła cały monitor */
+  :fullscreen #stopka { display: none; }
+  :fullscreen canvas { border: none; border-radius: 0; }
 </style>
 </head>
 <body>
 <canvas id="gra" width="480" height="640"></canvas>
-<p>Klawiatura: strzałki · Spacja lub X: strzał · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry<br><small>wersja 1.5 (nowe przeszkody)</small></p>
+<p id="stopka">Strzałki: lot · Spacja lub X: strzał · P: pauza · Enter: start · F: pełny ekran
+  <button id="pelnyEkran" type="button">⛶ Pełny ekran</button>
+  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 1.6 (szeroki widok)</small></p>
 
 <script>
 // ===== Ustawienia =====
 const canvas = document.getElementById('gra');
 const ctx = canvas.getContext('2d');
-const W = canvas.width, H = canvas.height;
 const SEG = 160;          // długość jednego odcinka rzeki (w pikselach świata)
+
+// ===== Rozmiar planszy =====
+// Wysokość planszy jest stała (640), a szerokość dopasowujemy do kształtu okna,
+// więc na szerokim monitorze widać więcej brzegów i rzeka ma więcej miejsca na zakręty.
+const H = 640;
+let W = 480;
+const MIN_W = 480, MAX_W = 1280;
+function resize() {
+  const footer = document.fullscreenElement ? 0 : document.getElementById('stopka').offsetHeight + 16;
+  const availW = innerWidth - 8, availH = innerHeight - footer - 8;
+  W = Math.round(Math.max(MIN_W, Math.min(MAX_W, H * availW / availH)));
+  canvas.width = W; canvas.height = H;
+  const scale = Math.min(availW / W, availH / H);       // powiększamy planszę, żeby wypełniła okno
+  canvas.style.width = Math.floor(W * scale) + 'px';
+  canvas.style.height = Math.floor(H * scale) + 'px';
+  if (plane) plane.x = Math.min(plane.x, W - 15);
+}
+addEventListener('resize', resize);
+document.addEventListener('fullscreenchange', resize);
+
+// Pełny ekran: klawisz F albo przycisk pod grą
+function toggleFullscreen() {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+document.getElementById('pelnyEkran').addEventListener('click', e => { toggleFullscreen(); e.currentTarget.blur(); });
 
 // ===== Stan gry =====
 let state = 'start';      // 'start' | 'play' | 'pause' | 'over'
@@ -44,6 +74,7 @@ addEventListener('keydown', e => {
   if (e.code.startsWith('Arrow') || isShotKey(e.code)) e.preventDefault();
   if (isShotKey(e.code) && !e.repeat) wantShot = true;
   if ((e.code === 'Enter' || e.code === 'NumpadEnter') && (state === 'start' || state === 'over')) newGame();
+  if (e.code === 'KeyF') toggleFullscreen();
   if (e.code === 'KeyP' && (state === 'play' || state === 'pause')) {
     state = state === 'play' ? 'pause' : 'play';
   }
@@ -88,14 +119,18 @@ document.addEventListener('visibilitychange', () => {
 // ===== Rzeka =====
 // Każdy odcinek ma: c = środek, w = połowa szerokości, iw = połowa szerokości wyspy (0 = brak)
 function makeSegment(i) {
-  if (i < 4) return { c: W / 2, w: 170, iw: 0 };
+  // na szerszym ekranie rzeka jest trochę szersza (najwyżej 1,4 raza)
+  const k = Math.max(1, Math.min(1.4, Math.sqrt(W / MIN_W)));
+  if (i < 4) return { c: W / 2, w: 170 * k, iw: 0 };
   const hard = Math.min(i / 120, 1);                 // trudność rośnie z dystansem
-  const w = 75 + Math.random() * (120 - 50 * hard);  // szerokość rzeki
+  const w = (75 + Math.random() * (120 - 50 * hard)) * k;  // szerokość rzeki
   const margin = 15;
   const prev = segments[i - 1];
   // środek przesuwa się najwyżej o 80 px na odcinek, żeby dało się nadążyć za zakrętem
   const minC = w + margin, maxC = W - w - margin;
-  const c = Math.max(minC, Math.min(maxC, prev.c + (Math.random() * 2 - 1) * 80));
+  // i jest lekko ściągany w stronę środka ekranu, żeby rzeka nie uciekała pod sam brzeg planszy
+  const drift = (Math.random() * 2 - 1) * 80 + (W / 2 - prev.c) * 0.15;
+  const c = Math.max(minC, Math.min(maxC, prev.c + Math.max(-80, Math.min(80, drift))));
   let iw = 0;
   if (w > 120 && Math.random() < 0.35 + 0.2 * hard) iw = Math.min(w * 0.4, w - 55);
   return { c, w, iw };
@@ -561,6 +596,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
+resize();
 newGame(); state = 'start';
 requestAnimationFrame(loop);
 </script>
