@@ -41,7 +41,7 @@
 <canvas id="gra" width="480" height="640"></canvas>
 <p id="stopka">Strzałki: lot · Spacja lub X: strzał · P: pauza · Enter: start · F: pełny ekran
   <button id="pelnyEkran" type="button">⛶ Pełny ekran</button>
-  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 1.8 (4 graczy)</small></p>
+  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 1.8.1 (zmiana imion)</small></p>
 <div id="panel" class="ukryty"><div class="okno" id="okno"></div></div>
 
 <script>
@@ -107,6 +107,8 @@ addEventListener('keydown', e => {
     else if (state === 'results') startRound();
   }
   if (e.code === 'KeyF') toggleFullscreen();
+  // M: powrót do menu (zmiana graczy i imion) z pauzy, między turami albo z wyników
+  if (e.code === 'KeyM' && (state === 'pause' || state === 'next' || state === 'results')) showMenu();
   if (e.code === 'KeyP' && (state === 'play' || state === 'pause')) {
     state = state === 'play' ? 'pause' : 'play';
   }
@@ -714,14 +716,15 @@ function draw() {
   drawPopups();
   if (state !== 'menu' && state !== 'results') drawHud();
   if (state === 'menu' || state === 'results') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, W, H); }
-  if (state === 'pause') overlay('Pauza', ['Naciśnij P albo dotknij, aby grać dalej']);
+  if (state === 'pause') overlay('Pauza', ['Naciśnij P albo dotknij, aby grać dalej', 'M: menu (zmiana graczy i imion)']);
   if (state === 'next') {
     const prev = players[turn - 1], now = players[turn];
     overlay('Koniec tury', [
       `${prev.name}: ${prev.score} pkt`,
       '',
       `Teraz gra: ${now.name} (${turn + 1}/${players.length})`,
-      'Enter albo dotknij, aby zacząć'
+      'Enter albo dotknij, aby zacząć',
+      'M: menu (zmiana graczy i imion)'
     ]);
   }
 }
@@ -803,7 +806,10 @@ function showMenu() {
     ${topTable(5)}
   `);
   okno.querySelectorAll('button[data-n]').forEach(b => b.onclick = () => { readNames(); menuCount = Number(b.dataset.n); showMenu(); });
-  okno.querySelectorAll('input').forEach(inp => inp.oninput = () => { menuNames[inp.dataset.i] = inp.value; });
+  okno.querySelectorAll('input').forEach(inp => {
+    inp.oninput = () => { menuNames[inp.dataset.i] = inp.value; };
+    inp.onfocus = () => inp.select();   // kliknięcie zaznacza stare imię, więc od razu wpisujesz nowe
+  });
   document.getElementById('startBtn').onclick = startFromMenu;
 }
 function readNames() { okno.querySelectorAll('input').forEach(inp => { menuNames[inp.dataset.i] = inp.value; }); }
@@ -852,7 +858,7 @@ function showResults() {
     <table><tr><th>#</th><th>Gracz</th><th class="liczba">Punkty</th><th class="liczba">Rekord gracza</th></tr>${rows}</table>
     <div class="rzad" style="margin-top:14px">
       <button type="button" class="glowny" id="againBtn">↻ Zagraj jeszcze raz (Enter)</button>
-      <button type="button" id="menuBtn">Zmień graczy</button>
+      <button type="button" id="menuBtn">✎ Zmień graczy / imiona (M)</button>
     </div>
     <h2>🏆 Najlepsze wyniki (top 10)</h2>
     ${topTable(10, players.map(p => p.entry))}
