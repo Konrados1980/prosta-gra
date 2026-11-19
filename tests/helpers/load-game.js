@@ -29,9 +29,20 @@ function fakeElement(extra = {}) {
   };
 }
 
+// Skrypty gry w kolejności z index.html: pliki <script src="..."> i kod wpisany w <script>
+function gameScripts() {
+  const root = path.join(__dirname, "..", "..");
+  const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+  return [...html.matchAll(/<script([^>]*)>([\s\S]*?)<\/script>/gi)].map(m => {
+    const src = m[1].match(/\bsrc="([^"]+)"/);
+    return src
+      ? { name: src[1], code: fs.readFileSync(path.join(root, src[1]), "utf8") }
+      : { name: "index.html", code: m[2] };
+  });
+}
+
 function loadGame({ width = 600, height = 800 } = {}) {
-  const html = fs.readFileSync(path.join(__dirname, "..", "..", "index.html"), "utf8");
-  const code = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]).join("\n");
+  const scripts = gameScripts();
 
   const ctx2d = fakeCanvasContext();
   const canvas = fakeElement({
@@ -61,9 +72,10 @@ function loadGame({ width = 600, height = 800 } = {}) {
     },
   };
   vm.createContext(sandbox);
-  vm.runInContext(code, sandbox, { filename: "index.html" });
+  // jak w przeglądarce: każdy skrypt osobno, ale wszystkie widzą wspólne zmienne globalne
+  for (const s of scripts) vm.runInContext(s.code, sandbox, { filename: s.name });
   // run("wyrażenie") ma dostęp do zmiennych gry (let/const z najwyższego poziomu skryptu)
   return { run: expr => vm.runInContext(expr, sandbox), store };
 }
 
-module.exports = { loadGame };
+module.exports = { loadGame, gameScripts };
