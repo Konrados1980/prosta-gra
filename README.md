@@ -10,6 +10,10 @@ Prosta zręcznościówka w przeglądarce. Lecisz samolotem nad krętą rzeką, o
 
 Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie trzeba instalować.
 
+## Gra dla 1–4 graczy
+
+W menu wybierz liczbę graczy (1–4) i wpisz imiona. Gracze grają po kolei, każdy ma 3 życia. Po ostatnim graczu pojawiają się wyniki rundy (ze zwycięzcą 🏆) i tabela 10 najlepszych wyników. Rekordy i imiona zapisują się w przeglądarce, więc zostają po zamknięciu strony (na tym samym komputerze i w tej samej przeglądarce). Rekordy można wyczyścić przyciskiem „Wyczyść rekordy”.
+
 ## Sterowanie
 
 - ← → lot na boki

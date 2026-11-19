@@ -14,13 +14,35 @@
   /* na pełnym ekranie chowamy stopkę, żeby gra zajęła cały monitor */
   :fullscreen #stopka { display: none; }
   :fullscreen canvas { border: none; border-radius: 0; }
+
+  /* Panel menu i wyników (nad planszą) */
+  #panel { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+  #panel.ukryty { display: none; }
+  .okno { background: rgba(14, 20, 32, .93); border: 1px solid #3a4a63; border-radius: 12px; padding: 18px 22px; width: min(560px, 100%);
+          max-height: 100%; overflow: auto; box-sizing: border-box; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+  .okno h1 { margin: 0 0 12px; font-size: 28px; text-align: center; }
+  .okno h2 { margin: 16px 0 6px; font-size: 17px; color: #ffd54a; }
+  .okno p { margin: 6px 0; font-size: 14px; line-height: 1.45; opacity: .9; }
+  .rzad { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .okno button { font: inherit; font-size: 15px; padding: 7px 14px; border-radius: 6px; border: 1px solid #4b5d7a; background: #24324a; color: #eee; cursor: pointer; }
+  .okno button:hover { background: #2f4263; }
+  .okno button.wybrany { background: #1e88e5; border-color: #90caf9; }
+  .okno button.glowny { background: #2e7d32; border-color: #81c784; font-weight: bold; font-size: 17px; }
+  .okno input { font: inherit; font-size: 15px; padding: 6px 10px; border-radius: 6px; border: 1px solid #4b5d7a; background: #0f1724; color: #fff; width: 170px; }
+  .okno table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .okno td, .okno th { padding: 4px 6px; text-align: left; border-bottom: 1px solid #263248; }
+  .okno th { color: #9fb3d1; font-weight: normal; font-size: 13px; }
+  .okno td.liczba, .okno th.liczba { text-align: right; }
+  .okno tr.zwyciezca td { color: #ffd54a; font-weight: bold; }
+  .nowy { color: #69f0ae; font-size: 12px; margin-left: 6px; }
 </style>
 </head>
 <body>
 <canvas id="gra" width="480" height="640"></canvas>
 <p id="stopka">Strzałki: lot · Spacja lub X: strzał · P: pauza · Enter: start · F: pełny ekran
   <button id="pelnyEkran" type="button">⛶ Pełny ekran</button>
-  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 1.7 (armatki)</small></p>
+  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 1.8 (4 graczy)</small></p>
+<div id="panel" class="ukryty"><div class="okno" id="okno"></div></div>
 
 <script>
 // ===== Ustawienia =====
@@ -55,7 +77,7 @@ function toggleFullscreen() {
 document.getElementById('pelnyEkran').addEventListener('click', e => { toggleFullscreen(); e.currentTarget.blur(); });
 
 // ===== Stan gry =====
-let state = 'start';      // 'start' | 'play' | 'pause' | 'over'
+let state = 'menu';       // 'menu' | 'play' | 'pause' | 'next' (między turami) | 'results'
 let cam, plane, lives, score, bonus, obstacles, rings, particles, segments, invuln, nextSpawn;
 let gt = 0;               // czas gry w sekundach (do animacji przeszkód)
 let bullets, shotCd;      // pociski samolotu i czas do następnego strzału
@@ -63,18 +85,27 @@ let popups = [];          // unoszące się napisy z punktami
 let cannons = [], balls = [], nextCannon = 0;   // armatki na brzegu i ich kule
 const SHOT_DELAY = 0.2;   // co ile sekund można strzelić (przy trzymanej Spacji)
 const SHOT_SPEED = 550;   // jak szybko pocisk leci w górę ekranu
-let best = 0;
-try { best = Number(localStorage.getItem('lotNadRzeka_best')) || 0; } catch (e) {}
 
 // Klawisze zapisujemy po e.code (fizyczny klawisz), więc działa przy każdym układzie klawiatury
 const keys = {};
 let wantShot = false;     // krótkie stuknięcie Spacji/X też odda strzał
 const isShotKey = c => c === 'Space' || c === 'KeyX';
 addEventListener('keydown', e => {
+  const enter = e.code === 'Enter' || e.code === 'NumpadEnter';
+  // Podczas wpisywania imienia klawisze nie sterują grą (poza Enterem = start)
+  if (e.target.tagName === 'INPUT') {
+    if (enter) { e.preventDefault(); startFromMenu(); }
+    return;
+  }
   keys[e.code] = true;
   if (e.code.startsWith('Arrow') || isShotKey(e.code)) e.preventDefault();
-  if (isShotKey(e.code) && !e.repeat) wantShot = true;
-  if ((e.code === 'Enter' || e.code === 'NumpadEnter') && (state === 'start' || state === 'over')) newGame();
+  if (isShotKey(e.code) && !e.repeat && state === 'play') wantShot = true;
+  if (enter && !e.repeat) {
+    e.preventDefault();
+    if (state === 'menu') startFromMenu();
+    else if (state === 'next') startTurn();
+    else if (state === 'results') startRound();
+  }
   if (e.code === 'KeyF') toggleFullscreen();
   if (e.code === 'KeyP' && (state === 'play' || state === 'pause')) {
     state = state === 'play' ? 'pause' : 'play';
@@ -96,8 +127,9 @@ function anchorDrag(p) { drag = { px: p.x, py: p.y, ax: plane.x, ay: plane.y, tx
 canvas.addEventListener('pointerdown', e => {
   e.preventDefault();
   try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
-  if (state === 'start' || state === 'over') newGame();
+  if (state === 'next') startTurn();
   else if (state === 'pause') state = 'play';
+  else if (state !== 'play') return;
   anchorDrag(pointerPos(e));
 });
 canvas.addEventListener('pointermove', e => {
@@ -372,8 +404,7 @@ function crash() {
   burst(plane.x, plane.y, '#ff7043', 30);
   lives--;
   if (lives <= 0) {
-    state = 'over';
-    if (score > best) { best = score; try { localStorage.setItem('lotNadRzeka_best', best); } catch (e) {} }
+    endTurn();
     return;
   }
   // Odrodzenie na środku kanału i usunięcie pobliskich skał
@@ -642,7 +673,18 @@ function drawHud() {
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 18px system-ui, sans-serif';
   ctx.textAlign = 'left';  ctx.fillText('Punkty: ' + score, 10, 23);
-  ctx.textAlign = 'center'; ctx.fillText('Rekord: ' + Math.max(best, score), W / 2, 23);
+  const rec = 'Rekord: ' + Math.max(bestScore(), score);
+  if (players.length > 1 && players[turn]) {
+    // kilku graczy: na środku imię, rekord w drugim, mniejszym wierszu
+    ctx.textAlign = 'center'; ctx.fillStyle = '#ffd54a';
+    ctx.fillText(`${players[turn].name} (${turn + 1}/${players.length})`, W / 2, 23);
+    ctx.font = 'bold 14px system-ui, sans-serif'; ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0, 34, 130, 22);
+    ctx.fillStyle = '#ddd'; ctx.fillText(rec, 10, 50);
+    ctx.font = 'bold 18px system-ui, sans-serif'; ctx.fillStyle = '#fff';
+  } else {
+    ctx.textAlign = 'center'; ctx.fillText(rec, W / 2, 23);
+  }
   ctx.textAlign = 'right'; ctx.fillText('Życia: ' + '♥'.repeat(Math.max(lives, 0)), W - 10, 23);
 }
 
@@ -667,26 +709,21 @@ function overlay(title, lines) {
 
 function draw() {
   drawWorld();
-  if (state !== 'over') drawPlane();
+  if (state === 'play' || state === 'pause') drawPlane();
   drawParticles();
   drawPopups();
-  drawHud();
-  if (state === 'start') overlay('Lot nad Rzeką', [
-    'Omijaj brzegi i wyspy, łap gwiazdki: +25',
-    'Spacja lub X: strzał. Punkty za rozbicie:',
-    'skała 10 · pień 15 · boja 20 · wir 25 · głaz 50',
-    'Głaz: 3 trafienia, wir: 2 (wciąga samolot!)',
-    'Armatka na brzegu: 2 trafienia, 40 pkt',
-    'czerwona lufa = zaraz strzeli! (kula: 5 pkt)',
-    '← → na boki, ↑ szybciej, ↓ wolniej',
-    'Enter albo dotknij, aby zacząć'
-  ]);
+  if (state !== 'menu' && state !== 'results') drawHud();
+  if (state === 'menu' || state === 'results') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, W, H); }
   if (state === 'pause') overlay('Pauza', ['Naciśnij P albo dotknij, aby grać dalej']);
-  if (state === 'over') overlay('Koniec gry', [
-    'Twój wynik: ' + score,
-    'Rekord: ' + best,
-    'Enter albo dotknij, aby zagrać jeszcze raz'
-  ]);
+  if (state === 'next') {
+    const prev = players[turn - 1], now = players[turn];
+    overlay('Koniec tury', [
+      `${prev.name}: ${prev.score} pkt`,
+      '',
+      `Teraz gra: ${now.name} (${turn + 1}/${players.length})`,
+      'Enter albo dotknij, aby zacząć'
+    ]);
+  }
 }
 
 // ===== Pętla gry =====
@@ -700,8 +737,138 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 
+// ===== Gracze, tury i tabela rekordów =====
+// Gra dla 1–4 osób po kolei (każdy ma swoją turę z 3 życiami).
+// Rekordy zapisują się w przeglądarce (localStorage), więc zostają po zamknięciu strony.
+const TOP_KEY = 'lotNadRzeka_top', NAMES_KEY = 'lotNadRzeka_names';
+let players = [{ name: 'Gracz 1', score: 0 }];
+let turn = 0;
+let menuCount = 1;
+let menuNames = ['Gracz 1', 'Gracz 2', 'Gracz 3', 'Gracz 4'];
+let topList = [];             // najlepsze wyniki: [{ name, score, date }]
+let personal = {};        // rekord każdego gracza: { imię: punkty }
+let lastRound = [];       // wyniki ostatniej rundy (do ekranu wyników)
+
+function loadRecords() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(TOP_KEY) || 'null');
+    if (saved) { topList = saved.top || []; personal = saved.personal || {}; }
+    else {
+      // przeniesienie dawnego rekordu z wersji dla 1 gracza
+      const old = Number(localStorage.getItem('lotNadRzeka_best')) || 0;
+      if (old > 0) topList = [{ name: 'Dawny rekord', score: old, date: '' }];
+    }
+    const names = JSON.parse(localStorage.getItem(NAMES_KEY) || 'null');
+    if (names) { menuCount = names.count || 1; names.list.forEach((n, i) => { if (n) menuNames[i] = n; }); }
+  } catch (e) {}
+}
+function saveRecords() {
+  try {
+    localStorage.setItem(TOP_KEY, JSON.stringify({ top: topList, personal }));
+    localStorage.setItem(NAMES_KEY, JSON.stringify({ count: menuCount, list: menuNames }));
+  } catch (e) {}
+}
+const bestScore = () => (topList[0] ? topList[0].score : 0);
+// zabezpieczenie: imię wstawiane do HTML nie może zawierać znaczników
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const panel = document.getElementById('panel'), okno = document.getElementById('okno');
+function showPanel(html) { okno.innerHTML = html; panel.classList.remove('ukryty'); }
+function hidePanel() { panel.classList.add('ukryty'); }
+
+function topTable(limit, highlight = []) {
+  if (!topList.length) return '<p>Jeszcze nikt nie zagrał. Bądź pierwszy!</p>';
+  const rows = topList.slice(0, limit).map((t, i) =>
+    `<tr${highlight.includes(t) ? ' class="zwyciezca"' : ''}><td>${i + 1}.</td><td>${esc(t.name)}</td><td class="liczba">${t.score}</td><td class="liczba">${esc(t.date)}</td></tr>`).join('');
+  return `<table><tr><th>#</th><th>Gracz</th><th class="liczba">Punkty</th><th class="liczba">Data</th></tr>${rows}</table>`;
+}
+
+function showMenu() {
+  state = 'menu';
+  const countBtns = [1, 2, 3, 4].map(n => `<button type="button" data-n="${n}" class="${n === menuCount ? 'wybrany' : ''}">${n}</button>`).join('');
+  const inputs = menuNames.slice(0, menuCount).map((n, i) =>
+    `<label>Gracz ${i + 1}: <input data-i="${i}" maxlength="12" value="${esc(n)}"></label>`).join('');
+  showPanel(`
+    <h1>Lot nad Rzeką</h1>
+    <div class="rzad">Liczba graczy: ${countBtns}</div>
+    <div class="rzad">${inputs}</div>
+    <p>Gracze grają po kolei, każdy ma 3 życia. Na końcu rundy zobaczycie wyniki i tabelę rekordów.</p>
+    <div class="rzad"><button type="button" class="glowny" id="startBtn">▶ Start (Enter)</button></div>
+    <h2>Sterowanie</h2>
+    <p>← → na boki · ↑ szybciej · ↓ wolniej · Spacja lub X: strzał · P: pauza · F: pełny ekran</p>
+    <h2>Punkty</h2>
+    <p>gwiazdka 25 (przelotem) · skała 10 · pień 15 · boja 20 · wir 25 (2 trafienia, wciąga!) · głaz 50 (3 trafienia) ·
+       armatka 40 (2 trafienia, czerwona lufa = zaraz strzeli) · kula z armatki 5</p>
+    <h2>🏆 Najlepsze wyniki</h2>
+    ${topTable(5)}
+  `);
+  okno.querySelectorAll('button[data-n]').forEach(b => b.onclick = () => { readNames(); menuCount = Number(b.dataset.n); showMenu(); });
+  okno.querySelectorAll('input').forEach(inp => inp.oninput = () => { menuNames[inp.dataset.i] = inp.value; });
+  document.getElementById('startBtn').onclick = startFromMenu;
+}
+function readNames() { okno.querySelectorAll('input').forEach(inp => { menuNames[inp.dataset.i] = inp.value; }); }
+
+function startFromMenu() {
+  if (state !== 'menu') return;
+  readNames();
+  players = menuNames.slice(0, menuCount).map((n, i) => ({ name: n.trim() || `Gracz ${i + 1}`, score: 0 }));
+  saveRecords();
+  if (document.activeElement) document.activeElement.blur();   // żeby Spacja nie "klikała" przycisków
+  startRound();
+}
+function startRound() {
+  for (const p of players) p.score = 0;
+  turn = 0;
+  startTurn();
+}
+function startTurn() {
+  hidePanel();
+  for (const k in keys) keys[k] = false;
+  newGame();
+}
+// Koniec tury: zapisujemy wynik i przechodzimy do następnego gracza albo do wyników
+function endTurn() {
+  const p = players[turn];
+  p.score = score;
+  p.newRecord = score > (personal[p.name] || 0);
+  if (p.newRecord) personal[p.name] = score;
+  const d = new Date();
+  const entry = { name: p.name, score, date: `${d.getDate()}.${d.getMonth() + 1}.${d.getFullYear()}` };
+  p.entry = entry;
+  if (score > 0) { topList.push(entry); topList.sort((a, b) => b.score - a.score); topList = topList.slice(0, 10); }
+  saveRecords();
+  turn++;
+  if (turn < players.length) state = 'next';
+  else showResults();
+}
+function showResults() {
+  state = 'results';
+  lastRound = [...players].sort((a, b) => b.score - a.score);
+  const rows = lastRound.map((p, i) =>
+    `<tr${i === 0 && players.length > 1 ? ' class="zwyciezca"' : ''}><td>${i === 0 && players.length > 1 ? '🏆' : i + 1 + '.'}</td><td>${esc(p.name)}</td>` +
+    `<td class="liczba">${p.score}</td><td class="liczba">${personal[p.name] || 0}${p.newRecord ? '<span class="nowy">nowy rekord!</span>' : ''}</td></tr>`).join('');
+  showPanel(`
+    <h1>${players.length > 1 ? 'Wyniki rundy' : 'Koniec gry'}</h1>
+    <table><tr><th>#</th><th>Gracz</th><th class="liczba">Punkty</th><th class="liczba">Rekord gracza</th></tr>${rows}</table>
+    <div class="rzad" style="margin-top:14px">
+      <button type="button" class="glowny" id="againBtn">↻ Zagraj jeszcze raz (Enter)</button>
+      <button type="button" id="menuBtn">Zmień graczy</button>
+    </div>
+    <h2>🏆 Najlepsze wyniki (top 10)</h2>
+    ${topTable(10, players.map(p => p.entry))}
+    <div class="rzad" style="margin-top:12px"><button type="button" id="clearBtn">Wyczyść rekordy</button></div>
+  `);
+  document.getElementById('againBtn').onclick = () => { document.activeElement.blur(); startRound(); };
+  document.getElementById('menuBtn').onclick = showMenu;
+  document.getElementById('clearBtn').onclick = () => {
+    if (confirm('Na pewno usunąć wszystkie rekordy? Tego nie da się cofnąć.')) { topList = []; personal = {}; saveRecords(); showResults(); }
+  };
+}
+
 resize();
-newGame(); state = 'start';
+loadRecords();
+newGame();
+showMenu();
 requestAnimationFrame(loop);
 </script>
 </body>
