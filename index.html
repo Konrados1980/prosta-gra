@@ -15,7 +15,7 @@
 </head>
 <body>
 <canvas id="gra" width="480" height="640"></canvas>
-<p>Klawiatura: strzałki · Spacja lub X: strzał · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry<br><small>wersja 1.4 (gwiazdki)</small></p>
+<p>Klawiatura: strzałki · Spacja lub X: strzał · P: pauza · Enter: start<br>Telefon: przesuwaj palcem po ekranie gry<br><small>wersja 1.5 (nowe przeszkody)</small></p>
 
 <script>
 // ===== Ustawienia =====
@@ -26,12 +26,12 @@ const SEG = 160;          // długość jednego odcinka rzeki (w pikselach świa
 
 // ===== Stan gry =====
 let state = 'start';      // 'start' | 'play' | 'pause' | 'over'
-let cam, plane, lives, score, bonus, rocks, rings, particles, segments, invuln, nextSpawn;
+let cam, plane, lives, score, bonus, obstacles, rings, particles, segments, invuln, nextSpawn;
+let gt = 0;               // czas gry w sekundach (do animacji przeszkód)
 let bullets, shotCd;      // pociski samolotu i czas do następnego strzału
 let popups = [];          // unoszące się napisy z punktami
 const SHOT_DELAY = 0.2;   // co ile sekund można strzelić (przy trzymanej Spacji)
 const SHOT_SPEED = 550;   // jak szybko pocisk leci w górę ekranu
-const ROCK_POINTS = 10;   // punkty za rozbitą skałę
 let best = 0;
 try { best = Number(localStorage.getItem('lotNadRzeka_best')) || 0; } catch (e) {}
 
@@ -124,23 +124,87 @@ function randomWaterX(wy, pad) {
   const start = left ? r.c - r.w + pad : r.c + r.iw + pad;
   return start + Math.random() * Math.max(0, chW);
 }
-// Skały stawiamy tylko na szerokich fragmentach rzeki i zawsze z wolnym przejazdem obok.
-const ROCK_MIN_WIDTH = 190;   // minimalna szerokość wody (bez wyspy), żeby postawić skałę
-const ROCK_FREE_GAP = 80;     // tyle wolnej wody musi zostać obok skały
-function placeRock(wy) {
-  // rzeka musi być szeroka w całej okolicy skały, a nie tylko w jednym punkcie
+// ===== Przeszkody =====
+// hp = ile trafień wytrzyma, pts = punkty za rozbicie, color = kolor napisu z punktami
+const TYPES = {
+  rock:    { name: 'Skała', hp: 1, pts: 10, color: '#eeeeee' },
+  log:     { name: 'Pień',  hp: 1, pts: 15, color: '#e6c08f' },
+  buoy:    { name: 'Boja',  hp: 1, pts: 20, color: '#ff8a80' },
+  whirl:   { name: 'Wir',   hp: 2, pts: 25, color: '#84ffff' },
+  boulder: { name: 'Głaz',  hp: 3, pts: 50, color: '#ffab40' },
+};
+// Przeszkody stawiamy tylko na szerokich fragmentach rzeki i zawsze z wolnym przejazdem obok.
+const MIN_WIDTH = 190;   // minimalna szerokość wody (bez wyspy), żeby postawić przeszkodę
+const FREE_GAP = 80;     // tyle wolnej wody musi zostać obok przeszkody
+
+// rzeka musi być szeroka w całej okolicy przeszkody, a nie tylko w jednym punkcie
+function wideRiver(wy) {
   for (let d = -80; d <= 80; d += 20) {
     const r = riverAt(wy + d);
-    if (r.iw > 0.5 || 2 * r.w < ROCK_MIN_WIDTH) return null;
+    if (r.iw > 0.5 || 2 * r.w < MIN_WIDTH) return false;
   }
-  const r = riverAt(wy);
-  const rad = 10 + Math.random() * 8;
-  for (let tries = 0; tries < 6; tries++) {
-    const x = r.c - r.w + rad + 6 + Math.random() * (2 * r.w - 2 * rad - 12);
-    const gapLeft = (x - rad) - (r.c - r.w), gapRight = (r.c + r.w) - (x + rad);
-    if (Math.max(gapLeft, gapRight) >= ROCK_FREE_GAP) return { x, wy, r: rad };
+  return true;
+}
+// Losuje rodzaj przeszkody; im dalej, tym więcej trudniejszych
+function pickType() {
+  const p = Math.min(cam / 15000, 1);
+  const w = {
+    rock: 5 - 2 * p,
+    log: 0.8 + 2 * p,
+    buoy: 0.6 + 2 * p,
+    boulder: cam > 1500 ? 0.4 + 1.6 * p : 0,
+    whirl: cam > 3000 ? 0.3 + 1.2 * p : 0,
+  };
+  let sum = 0;
+  for (const k in w) sum += w[k];
+  let roll = Math.random() * sum;
+  for (const k in w) { roll -= w[k]; if (roll <= 0) return k; }
+  return 'rock';
+}
+// Losuje x tak, żeby przeszkoda o połowie szerokości "half" zostawiła wolny przejazd
+function freeX(r, half) {
+  for (let tries = 0; tries < 8; tries++) {
+    const x = r.c - r.w + half + 6 + Math.random() * (2 * r.w - 2 * half - 12);
+    const gapLeft = (x - half) - (r.c - r.w), gapRight = (r.c + r.w) - (x + half);
+    if (Math.max(gapLeft, gapRight) >= FREE_GAP) return x;
   }
   return null;
+}
+function makeObstacle(wy) {
+  if (!wideRiver(wy)) return null;
+  const type = pickType();
+  const o = { type, wy, hp: TYPES[type].hp, flash: 0 };
+  let half;
+  if (type === 'rock')    { o.r = 10 + Math.random() * 8; half = o.r; }
+  if (type === 'boulder') { o.r = 22 + Math.random() * 4; half = o.r; }
+  if (type === 'buoy')    { o.r = 9; o.amp = 25 + Math.random() * 15; o.ph = Math.random() * 6.3; half = o.r + o.amp; }
+  if (type === 'log')     { o.r = 6; o.len = 46 + Math.random() * 20; o.vx = (Math.random() < 0.5 ? -1 : 1) * (30 + Math.random() * 30); half = o.len / 2 + o.r; }
+  if (type === 'whirl')   { o.r = 16; o.pull = 90; o.spin = Math.random() * 6.3; half = o.r; }
+  const x = freeX(riverAt(wy), half);
+  if (x === null) return null;
+  o.x = x; o.bx = x;
+  return o;
+}
+// Ruch przeszkód: boje kołyszą się na boki, pnie dryfują i odbijają od brzegów, wiry się kręcą
+function moveObstacles(dt) {
+  for (const o of obstacles) {
+    o.flash = Math.max(0, o.flash - dt);
+    if (o.type === 'buoy') o.x = o.bx + Math.sin(gt * 1.6 + o.ph) * o.amp;
+    if (o.type === 'whirl') o.spin += dt * 3;
+    if (o.type === 'log') {
+      o.x += o.vx * dt;
+      const half = o.len / 2 + o.r;
+      if (!inWater(o.x - half, o.wy) || !inWater(o.x + half, o.wy)) { o.x -= o.vx * dt; o.vx = -o.vx; }
+    }
+  }
+}
+// Odległość punktu od krawędzi przeszkody (ujemna = w środku)
+function bodyDist(o, x, wy) {
+  if (o.type === 'log') {
+    const dx = Math.max(Math.abs(x - o.x) - o.len / 2, 0);
+    return Math.hypot(dx, wy - o.wy) - o.r;
+  }
+  return Math.hypot(x - o.x, wy - o.wy) - o.r;
 }
 function channelCenter(wy) {
   const r = riverAt(wy);
@@ -154,7 +218,7 @@ const toWorldY = sy => cam + (H - sy);
 // ===== Nowa gra =====
 function newGame() {
   cam = 0; lives = 3; score = 0; bonus = 0;
-  rocks = []; rings = []; particles = []; segments = [];
+  obstacles = []; rings = []; particles = []; segments = []; gt = 0;
   bullets = []; shotCd = 0; wantShot = false; popups = [];
   plane = { x: W / 2, y: H - 110 };
   invuln = 1.5; nextSpawn = 400;
@@ -177,6 +241,16 @@ function update(dt) {
     plane.y += Math.max(-my, Math.min(my, dy));
     if (drag.released && Math.abs(dx) <= mx && Math.abs(dy) <= my) drag = null;
   }
+  // Wiry wciągają samolot do środka (da się wyrwać, lecąc w bok)
+  for (const o of obstacles) {
+    if (o.type !== 'whirl') continue;
+    const dx = plane.x - o.x, dy = plane.y - toScreenY(o.wy), d = Math.hypot(dx, dy);
+    if (d < o.pull && d > 1) {
+      const f = 120 * (1 - d / o.pull);
+      plane.x -= dx / d * f * dt;
+      plane.y -= dy / d * f * dt;
+    }
+  }
   plane.x = Math.max(15, Math.min(W - 15, plane.x));
   plane.y = Math.max(120, Math.min(H - 40, plane.y));
 
@@ -184,7 +258,9 @@ function update(dt) {
   const base = Math.min(110 + cam * 0.012, 300);
   const speed = base + (H - 40 - plane.y) * 0.35;
   cam += speed * dt;
+  gt += dt;
   score = Math.floor(cam / 10) + bonus;
+  moveObstacles(dt);
 
   // Strzelanie: Spacja albo X (można trzymać)
   shotCd -= dt;
@@ -199,26 +275,22 @@ function update(dt) {
     if (toScreenY(b.wy) < 34) b.dead = true;
     else if (!inWater(b.x, b.wy)) { b.dead = true; burst(b.x, toScreenY(b.wy), '#a1887f', 5); }
     else {
-      const rock = rocks.find(o => !o.dead && Math.hypot(o.x - b.x, o.wy - b.wy) < o.r + 4);
-      if (rock) {
-        rock.dead = true; b.dead = true; bonus += ROCK_POINTS;
-        burst(rock.x, toScreenY(rock.wy), '#9e9e9e', 18);
-        popup(rock.x, toScreenY(rock.wy), '+' + ROCK_POINTS, '#e0e0e0');
-      }
+      const o = obstacles.find(o => !o.dead && bodyDist(o, b.x, b.wy) < (o.type === 'whirl' ? 8 : 4));
+      if (o) hitObstacle(o, b);
     }
   }
   bullets = bullets.filter(b => !b.dead);
-  rocks = rocks.filter(o => !o.dead);
+  obstacles = obstacles.filter(o => !o.dead);
 
-  // Nowe skały i kółka pojawiają się nad ekranem
+  // Nowe przeszkody i gwiazdki pojawiają się nad ekranem
   while (nextSpawn < cam + H + 60) {
     const wy = nextSpawn;
-    const rock = Math.random() < 0.55 ? placeRock(wy) : null;
-    if (rock) rocks.push(rock);
+    const o = Math.random() < 0.55 ? makeObstacle(wy) : null;
+    if (o) obstacles.push(o);
     else rings.push({ x: randomWaterX(wy, 20), wy, got: false });
     nextSpawn += Math.max(90, 220 - cam * 0.004) * (0.6 + Math.random() * 0.8);
   }
-  rocks = rocks.filter(o => toScreenY(o.wy) < H + 40);
+  obstacles = obstacles.filter(o => toScreenY(o.wy) < H + 60);
   rings = rings.filter(o => toScreenY(o.wy) < H + 40 && !o.got);
 
   // Gwiazdki: +25 pkt za przelot
@@ -239,7 +311,7 @@ function update(dt) {
   else {
     const pts = [[0, -16], [-15, 2], [15, 2], [0, 12], [-6, 12], [6, 12]];
     let hit = pts.some(([dx, dy]) => !inWater(plane.x + dx, toWorldY(plane.y + dy)));
-    if (!hit) hit = rocks.some(o => Math.hypot(o.x - plane.x, o.wy - pwy) < o.r + 11);
+    if (!hit) hit = obstacles.some(o => o.type !== 'whirl' && bodyDist(o, plane.x, pwy) < 11);
     if (hit) crash();
   }
 
@@ -260,14 +332,27 @@ function crash() {
   plane.y = H - 110;
   const wy = toWorldY(plane.y);
   plane.x = channelCenter(wy);
-  rocks = rocks.filter(o => Math.abs(o.wy - wy) > 250);
+  obstacles = obstacles.filter(o => Math.abs(o.wy - wy) > 250);
   invuln = 2;
   // palec dalej na ekranie: liczymy ruch od nowa; palec puszczony: zatrzymujemy samolot
   if (drag && !drag.released && drag.last) anchorDrag(drag.last);
   else drag = null;
 }
 
-function popup(x, y, text, color) { popups.push({ x, y, text, color, life: 0.9 }); }
+// Trafienie przeszkody: odejmuje 1 punkt wytrzymałości; przy zerze przeszkoda pęka i daje punkty
+function hitObstacle(o, b) {
+  const T = TYPES[o.type], sy = toScreenY(o.wy);
+  b.dead = true;
+  o.hp--; o.flash = 0.12;
+  if (o.hp > 0) { burst(b.x, sy, '#ffffff', 6); return; }
+  o.dead = true;
+  bonus += T.pts;
+  burst(o.x, sy, T.color, 14 + T.pts / 2);
+  popup(o.x, sy, '+' + T.pts, T.color, T.pts >= 25 ? 30 : 24);
+}
+
+// Napis z punktami: pojawia się duży i szybko maleje do normalnego rozmiaru
+function popup(x, y, text, color, size = 22) { popups.push({ x, y, text, color, size, life: 1 }); }
 
 function burst(x, y, color, n) {
   for (let i = 0; i < n; i++) {
@@ -295,20 +380,77 @@ function drawWorld() {
       ctx.fillRect(r.c - r.iw + 5, y, Math.max(0, r.iw * 2 - 10), step);
     }
   }
-  // Skały
-  for (const o of rocks) {
-    const sy = toScreenY(o.wy);
-    ctx.fillStyle = '#5d5d5d';
-    ctx.beginPath(); ctx.arc(o.x, sy, o.r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#8a8a8a';
-    ctx.beginPath(); ctx.arc(o.x - o.r * 0.3, sy - o.r * 0.3, o.r * 0.45, 0, Math.PI * 2); ctx.fill();
-  }
+  // Przeszkody (wiry najpierw, bo leżą "pod" resztą)
+  for (const o of obstacles) if (o.type === 'whirl') drawObstacle(o);
+  for (const o of obstacles) if (o.type !== 'whirl') drawObstacle(o);
   // Złote gwiazdki (nagroda: zbierasz je przelotem)
   const t = performance.now() / 1000;
   for (const g of rings) drawStar(g.x, toScreenY(g.wy), 16, t * 2 + g.x);
   // Pociski
   ctx.fillStyle = '#fff59d';
   for (const b of bullets) ctx.fillRect(b.x - 1.5, toScreenY(b.wy) - 6, 3, 12);
+}
+
+function circle(x, y, r, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
+function drawObstacle(o) {
+  const x = o.x, y = toScreenY(o.wy), r = o.r;
+  if (o.type === 'rock') {
+    circle(x, y, r, '#5d5d5d');
+    circle(x - r * 0.3, y - r * 0.3, r * 0.45, '#8a8a8a');
+  }
+  if (o.type === 'boulder') {
+    circle(x + 3, y + 4, r, 'rgba(0,0,0,.25)');            // cień
+    circle(x, y, r, '#6d5c4d');
+    circle(x - r * 0.3, y - r * 0.35, r * 0.5, '#8d7b6a');
+    // rysy: im więcej trafień, tym więcej pęknięć
+    const damage = TYPES.boulder.hp - o.hp;
+    ctx.strokeStyle = '#2b2118'; ctx.lineWidth = 2;
+    for (let i = 0; i < damage * 2; i++) {
+      const a = i * 2.4 + 0.5;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      ctx.lineTo(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5 + 3);
+      ctx.lineTo(x + Math.cos(a + 0.3) * r * 0.95, y + Math.sin(a + 0.3) * r * 0.95);
+      ctx.stroke();
+    }
+  }
+  if (o.type === 'log') {
+    const L = o.len / 2;
+    ctx.fillStyle = '#6d4c41';
+    ctx.beginPath(); ctx.roundRect(x - L, y - r, o.len, r * 2, r); ctx.fill();
+    ctx.strokeStyle = '#4e342e'; ctx.lineWidth = 1.5;                     // kora
+    for (let i = -L + 10; i < L - 6; i += 12) { ctx.beginPath(); ctx.moveTo(x + i, y - r + 2); ctx.lineTo(x + i + 6, y + r - 2); ctx.stroke(); }
+    circle(x - L + 2, y, r - 1, '#d7b48a'); circle(x + L - 2, y, r - 1, '#d7b48a');   // słoje na końcach
+    circle(x - L + 2, y, r * 0.35, '#a1784e'); circle(x + L - 2, y, r * 0.35, '#a1784e');
+  }
+  if (o.type === 'buoy') {
+    const tilt = Math.sin(gt * 3.2 + o.ph) * 0.25;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
+    circle(0, 0, r, '#e53935');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(-r, -3, r * 2, 6);
+    circle(0, -r + 1, 3, '#263238');
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.5;        // fale wokół boi
+    ctx.beginPath(); ctx.arc(x, y, r + 5 + Math.sin(gt * 4) * 2, 0, Math.PI * 2); ctx.stroke();
+  }
+  if (o.type === 'whirl') {
+    ctx.fillStyle = 'rgba(13,71,161,.25)';                               // strefa wciągania
+    ctx.beginPath(); ctx.arc(x, y, o.pull, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 3; i++) {
+      ctx.strokeStyle = `rgba(255,255,255,${0.7 - i * 0.2})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x, y, r + i * 12, o.spin + i * 2, o.spin + i * 2 + 4); ctx.stroke();
+    }
+    circle(x, y, r * 0.7 * (o.hp / TYPES.whirl.hp + 0.3), '#0d47a1');
+  }
+  // krótki biały błysk po trafieniu
+  if (o.flash > 0) {
+    ctx.globalAlpha = 0.7;
+    if (o.type === 'log') { ctx.fillStyle = '#fff'; ctx.fillRect(x - o.len / 2, y - r, o.len, r * 2); }
+    else circle(x, y, r, '#fff');
+    ctx.globalAlpha = 1;
+  }
 }
 
 // Pięcioramienna gwiazdka, która się obraca i lekko pulsuje
@@ -333,8 +475,9 @@ function drawStar(x, y, size, angle) {
 // Napisy "+25", "+10" unoszące się po zdobyciu punktów
 function drawPopups() {
   ctx.textAlign = 'center';
-  ctx.font = 'bold 18px system-ui, sans-serif';
   for (const p of popups) {
+    const grow = 1 + 0.8 * Math.max(0, (p.life - 0.85) / 0.15);   // na początku większy
+    ctx.font = `bold ${Math.round(p.size * grow)}px system-ui, sans-serif`;
     ctx.globalAlpha = Math.min(1, p.life * 2);
     ctx.fillStyle = '#000'; ctx.fillText(p.text, p.x + 1, p.y + 1);
     ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
@@ -393,9 +536,10 @@ function draw() {
   drawHud();
   if (state === 'start') overlay('Lot nad Rzeką', [
     'Omijaj brzegi i wyspy, łap gwiazdki: +25',
-    'Spacja lub X: strzał, rozbita skała: +10',
+    'Spacja lub X: strzał. Punkty za rozbicie:',
+    'skała 10 · pień 15 · boja 20 · wir 25 · głaz 50',
+    'Głaz: 3 trafienia, wir: 2 (wciąga samolot!)',
     '← → na boki, ↑ szybciej, ↓ wolniej',
-    'lub przesuwaj palcem po ekranie',
     'Enter albo dotknij, aby zacząć'
   ]);
   if (state === 'pause') overlay('Pauza', ['Naciśnij P albo dotknij, aby grać dalej']);

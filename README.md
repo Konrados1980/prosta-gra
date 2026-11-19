@@ -1,6 +1,6 @@
 # Lot nad Rzeką
 
-Prosta zręcznościówka w przeglądarce. Lecisz samolotem nad krętą rzeką i omijasz brzegi, wyspy i skały. Za złapanie złotej gwiazdki (przelotem) dostajesz +25 punktów. Masz 3 życia, a gra z czasem przyspiesza.
+Prosta zręcznościówka w przeglądarce. Lecisz samolotem nad krętą rzeką, omijasz brzegi i wyspy, a przeszkody w wodzie omijasz albo zestrzeliwujesz. Za złapanie złotej gwiazdki (przelotem) dostajesz +25 punktów. Masz 3 życia, a gra z czasem przyspiesza.
 
 ## Zagraj online
 
@@ -15,10 +15,21 @@ Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie t
 - ← → lot na boki
 - ↑ lot do przodu (szybciej)
 - ↓ lot do tyłu (wolniej)
-- Spacja lub X strzał (można trzymać); rozbita skała daje +10 punktów
-
-Skały pojawiają się tylko na szerokich fragmentach rzeki i zawsze zostawiają wolny przejazd.
+- Spacja lub X strzał (można trzymać)
 - P pauza
 - Enter start i nowa gra
 
 Na telefonie: przesuwaj palcem w dowolnym miejscu ekranu gry, a samolot przesuwa się razem z palcem (palec go nie zasłania). Dotknięcie uruchamia grę i wznawia ją po pauzie.
+
+## Przeszkody i punkty
+
+| Przeszkoda | Co robi | Trafienia do rozbicia | Punkty |
+|---|---|---|---|
+| Skała | stoi w miejscu | 1 | 10 |
+| Pień | dryfuje w poprzek rzeki i odbija się od brzegów | 1 | 15 |
+| Boja | kołysze się na boki | 1 | 20 |
+| Wir | nie rozbija samolotu, ale wciąga go do środka | 2 | 25 |
+| Głaz | stoi w miejscu, pęka po każdym trafieniu | 3 | 50 |
+| Gwiazdka | nagroda – zbierasz ją przelotem | – | 25 |
+
+Przeszkody pojawiają się tylko na szerokich fragmentach rzeki i zawsze zostawiają wolny przejazd. Im dalej lecisz, tym więcej trudniejszych przeszkód (głazy od ok. 150 punktów dystansu, wiry od ok. 300).
