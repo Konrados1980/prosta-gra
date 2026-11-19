@@ -49,3 +49,15 @@ Zapisuj tu powtarzalne problemy ujawnione podczas pracy. Każdy wpis powinien ws
 - **Przyczyna:** sprawdzanie odbywało się skryptami wklejanymi do przeglądarki; po zmianie nikt ich nie powtarzał.
 - **Reguła:** każdy sprawdzony scenariusz, który może się zepsuć ponownie, zapisz w `tests/game.test.js`.
 - **Sprawdzenie:** `npm test` w bramce `gate:local` (przez `check:project-gates`).
+
+## 9. Git Bash zamienia argumenty zaczynające się od `//` (wersja 2.0)
+
+- **Przyczyna:** na Windows Git Bash (MSYS) traktuje argument `"// ===== Stan gry ====="` jak ścieżkę i go przerabia; skrypt nie znalazł znacznika.
+- **Reguła:** w Git Bash uruchamiaj takie komendy z `MSYS_NO_PATHCONV=1` albo podawaj znaczniki bez `//` na początku.
+- **Sprawdzenie:** skrypt przerywa pracę z błędem, gdy nie znajdzie znacznika (nic nie zmienia w plikach).
+
+## 10. Przenoszenie kodu liczy się podwójnie w limicie zmiany (wersja 2.0)
+
+- **Przyczyna:** `check:diff-size` liczy linie usunięte z `index.html` i dodane w nowym pliku, więc przeniesienie 125 linii to ok. 250 linii zmiany.
+- **Reguła:** duży plik dziel w kilku zadaniach, po ok. 120 linii, zawsze od góry skryptu, żeby kolejność wykonania kodu się nie zmieniła.
+- **Sprawdzenie:** `npm run gate:local` po każdym kroku (podział na 13 plików: 12 zadań, wszystkie PASS).

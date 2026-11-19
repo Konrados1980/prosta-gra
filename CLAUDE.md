@@ -18,7 +18,7 @@ Najpierw przeczytaj [AGENTS.md](AGENTS.md) – to główne zasady (tryby pracy, 
    - `npm run lint` i `npm test` (każda naprawa błędu dostaje nowy test),
    - gra na żywo w przeglądarce: prawdziwe klawisze, zrzut ekranu, konsola bez błędów,
    - wąskie i szerokie okno.
-5. Podbij numer wersji pod grą (stopka w `index.html`).
+5. Podbij numer wersji pod grą (stopka w `index.html`). Podgląd na żywo: serwer `gra` z `.claude/launch.json` (`node scripts/serve.js`, http://localhost:5173).
 6. `npm run gate:local`, zapis wyników w `tasks/todo.md`, `npm run task:close -- --result PASS|FAIL`.
 7. Commit (opis po polsku, co i dlaczego) i push na `main`. Ustalenie z 19.11.2026: po zadaniu z wynikiem PASS commitujemy i wysyłamy na GitHuba bez dodatkowego pytania (użytkownik chce mieć każdą wersję online). Jeśli użytkownik zmieni zdanie, popraw ten punkt.
 8. Poczekaj, aż GitHub Pages pokaże nową wersję, i sprawdź ją online.

@@ -2,7 +2,7 @@
 
 To jest główny punkt wejścia. Z polecenia użytkownika ustal oczekiwany wynik, kryteria sukcesu i ograniczenia. Sprawdź stan projektu, nazwij najważniejszą przeszkodę i wybierz najmniejszą zmianę, która przybliża wynik.
 
-Projekt to gra **„Lot nad Rzeką”**: prosta zręcznościówka w przeglądarce (samolot nad krętą rzeką, przeszkody, strzelanie, armatki, 1–4 graczy). Cała gra jest w `index.html` (HTML + CSS + JavaScript, bez instalacji i bez buildu) i jest publikowana na GitHub Pages: https://konrados1980.github.io/prosta-gra/. Przed zmianą gry przeczytaj fragment `index.html`, którego dotyczy zmiana, oraz [tasks/lessons.md](tasks/lessons.md).
+Projekt to gra **„Lot nad Rzeką”**: prosta zręcznościówka w przeglądarce (samolot nad krętą rzeką, przeszkody, strzelanie, armatki, 1–4 graczy). Gra to strona statyczna bez instalacji i bez buildu: `index.html` (szkielet strony), `style.css` i skrypty w `src/` ładowane zwykłym `<script src>` w ustalonej kolejności (wszystkie dzielą zmienne globalne; nie używamy modułów ES, bo nie działają po otwarciu pliku z dysku). Mapa plików jest w [README](README.md#gdzie-jest-kod). Gra jest publikowana na GitHub Pages: https://konrados1980.github.io/prosta-gra/. Przed zmianą przeczytaj plik w `src/`, którego dotyczy zmiana, oraz [tasks/lessons.md](tasks/lessons.md). Nowy plik w `src/` dopisz do `index.html` we właściwej kolejności (używane przy wczytywaniu musi być wcześniej; `src/main.js` zawsze ostatni). Podgląd: `node scripts/serve.js` → http://localhost:5173.
 
 Szkielet workflow (tryby, formularz zadania, bramki) pochodzi z projektu [paulcrowski/jakapiosenka](https://github.com/paulcrowski/jakapiosenka) – klub „PoProstuKoduj”.
 
@@ -34,5 +34,7 @@ Jeśli brakuje danych do bezpiecznej zmiany, zapisz brakujący dowód i najmniej
 - Każda naprawa błędu dostaje test w `tests/game.test.js`, który przed naprawą by nie przeszedł.
 - Każda zmiana zachowania sprawdzana jest także w wąskim (480) i szerokim (ok. 1200) oknie.
 - Ustawienia gry (prędkości, szerokości, punkty) trzymaj w nazwanych stałych z komentarzem.
+- Plik w `src/` powyżej 300 linii (ostrzeżenie `check:godfiles`) podziel przed dokładaniem nowej odpowiedzialności.
+- Przenoszenie kodu liczy się podwójnie w `check:diff-size` (usunięte + dodane linie) – przenoś najwyżej ok. 120 linii na zadanie.
 
 W raporcie podaj zmienione pliki, wynik weryfikacji i otwarte decyzje. Po korekcie, która ujawnia powtarzalny problem, dopisz regułę zapobiegawczą w [tasks/lessons.md](tasks/lessons.md).

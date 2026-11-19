@@ -47,6 +47,28 @@ Armatki pojawiają się od ok. 200 punktów dystansu i strzelają tylko wtedy, g
 
 Przeszkody pojawiają się tylko na szerokich fragmentach rzeki i zawsze zostawiają wolny przejazd. Im dalej lecisz, tym więcej trudniejszych przeszkód (głazy od ok. 150 punktów dystansu, wiry od ok. 300).
 
+## Gdzie jest kod
+
+Gra to zwykła strona: `index.html` (szkielet), `style.css` (wygląd) i skrypty w `src/`, ładowane w tej kolejności:
+
+| Plik | Co zawiera |
+|---|---|
+| [src/screen.js](src/screen.js) | rozmiar planszy, pełny ekran, przesuwanie świata po zmianie okna |
+| [src/input.js](src/input.js) | stan gry, klawiatura, sterowanie dotykiem |
+| [src/river.js](src/river.js) | rzeka: odcinki, szerokość, wyspy, sprawdzanie wody |
+| [src/obstacles.js](src/obstacles.js) | przeszkody: rodzaje, punkty, rozmieszczanie, ruch |
+| [src/game.js](src/game.js) | nowa gra i logika każdej klatki (ruch, strzały, zderzenia) |
+| [src/combat.js](src/combat.js) | rozbicie samolotu, armatki, trafienia, punkty, wybuchy |
+| [src/render-world.js](src/render-world.js) | rysowanie trawy, rzeki, plaż, fal, wysp |
+| [src/render-objects.js](src/render-objects.js) | rysowanie drzew, armatek i przeszkód |
+| [src/render-plane.js](src/render-plane.js) | gwiazdki, napisy z punktami, samolot |
+| [src/render-hud.js](src/render-hud.js) | pasek punktów, cząsteczki, napisy, rysowanie klatki, pętla gry |
+| [src/records.js](src/records.js) | gracze, rekordy (zapis w przeglądarce), menu |
+| [src/turns.js](src/turns.js) | tury graczy i ekran wyników |
+| [src/main.js](src/main.js) | start gry (zawsze ostatni) |
+
+Podgląd przez lokalny serwer: `node scripts/serve.js` i http://localhost:5173 (gra działa też po dwukrotnym kliknięciu w `index.html`).
+
 ## Praca nad projektem
 
 Projekt rozwijamy z AI według stałych zasad zapisanych w repo:
