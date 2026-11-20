@@ -7,6 +7,7 @@ function newGame() {
   bullets = []; shotCd = 0; wantShot = false; popups = [];
   plane = { x: W / 2, y: H - 110, roll: 0, boost: 0 };
   invuln = 1.5; nextSpawn = 400;
+  resetPowers();
   state = 'play';
 }
 
@@ -47,23 +48,25 @@ function update(dt) {
   // Prędkość: rośnie z dystansem, a lot "do przodu" dodatkowo przyspiesza
   const base = Math.min(110 + cam * 0.012, 300);
   const speed = base + (H - 40 - plane.y) * 0.35;
-  cam += speed * dt;
+  const ws = worldSpeed();          // bonus „spowolnienie”: świat leci wolniej (src/powerups.js)
+  cam += speed * ws * dt;
   gt += dt;
   score = Math.floor(cam / 10) + bonus;
   updateStage(dt);                // nowy etap = nowa pora dnia (src/stages.js)
-  moveObstacles(dt);
+  moveObstacles(dt * ws);
 
   // Strzelanie: Spacja albo X (można trzymać)
   shotCd -= dt;
   if ((keys.Space || keys.KeyX || wantShot) && shotCd <= 0) {
-    bullets.push({ x: plane.x, wy: toWorldY(plane.y - 18) });
+    fireBullets();                  // 1 pocisk, z bonusem 3 (src/powerups.js)
     sfx('shot');
     shotCd = SHOT_DELAY;
     wantShot = false;
   }
   // Pociski lecą w górę; znikają poza ekranem albo nad lądem
   for (const b of bullets) {
-    b.wy += (speed + SHOT_SPEED) * dt;
+    b.wy += (speed * ws + SHOT_SPEED) * dt;
+    b.x += (b.vx || 0) * dt;
     if (toScreenY(b.wy) < 34) { b.dead = true; continue; }
     // armatki stoją na brzegu, więc sprawdzamy je przed lądem
     const cn = cannons.find(c => !c.dead && Math.hypot(c.x - b.x, c.wy - b.wy) < 18);
@@ -82,7 +85,7 @@ function update(dt) {
   bullets = bullets.filter(b => !b.dead);
   obstacles = obstacles.filter(o => !o.dead);
 
-  updateCannons(dt);
+  updateCannons(dt * ws);
 
   // Nowe przeszkody i gwiazdki pojawiają się nad ekranem
   while (nextSpawn < cam + H + 60) {
@@ -104,6 +107,7 @@ function update(dt) {
       popup(g.x, toScreenY(g.wy), '+25', '#ffd54a');
     }
   }
+  updatePowerups(dt);
   // Napisy z punktami unoszą się do góry i znikają
   for (const p of popups) { p.y -= 40 * dt; p.life -= dt; }
   popups = popups.filter(p => p.life > 0);
@@ -115,7 +119,7 @@ function update(dt) {
     let hit = pts.some(([dx, dy]) => !inWater(plane.x + dx, toWorldY(plane.y + dy)));
     if (!hit) hit = obstacles.some(o => o.type !== 'whirl' && bodyDist(o, plane.x, pwy) < 11);
     if (!hit) hit = balls.some(k => Math.hypot(k.x - plane.x, k.wy - pwy) < BALL_R + 11);
-    if (hit) crash();
+    if (hit && !shieldSaves()) crash();    // tarcza przyjmuje uderzenie zamiast życia
   }
 
   // Cząsteczki (wybuchy, błyski)

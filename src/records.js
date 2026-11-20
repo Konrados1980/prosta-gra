@@ -61,6 +61,8 @@ function showMenu() {
     <h2>Punkty</h2>
     <p>gwiazdka 25 (przelotem) · skała 10 · pień 15 · boja 20 · wir 25 (2 trafienia, wciąga!) · głaz 50 (3 trafienia) ·
        armatka 40 (2 trafienia, czerwona lufa = zaraz strzeli) · kula z armatki 5</p>
+    <h2>Bonusy (zbierasz przelotem)</h2>
+    <p>🛡 tarcza – jedno uderzenie bez utraty życia · ✦ potrójny strzał (8 s) · ⏳ spowolnienie świata (5 s) · ♥ +1 życie (najwyżej 5)</p>
     <h2>🏆 Najlepsze wyniki</h2>
     ${topTable(5)}
   `);

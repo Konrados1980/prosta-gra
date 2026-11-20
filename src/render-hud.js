@@ -52,12 +52,12 @@ function overlay(title, lines) {
 function draw() {
   ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
   drawWorld();
-  if (state === 'play' || state === 'pause') drawPlane();
+  if (state === 'play' || state === 'pause') { drawPlane(); drawShield(); }
   drawParticles();
   drawAtmosphere();             // zachód słońca, noc z reflektorem (src/stages.js)
   drawPopups();
   if (state === 'play') drawStageBanner();
-  if (state !== 'menu' && state !== 'results') drawHud();
+  if (state !== 'menu' && state !== 'results') { drawHud(); drawPowerHud(); }
   if (state === 'menu' || state === 'results') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, W, H); }
   if (state === 'pause') overlay('Pauza', ['Naciśnij P albo dotknij, aby grać dalej', 'M: menu (zmiana graczy i imion)']);
   if (state === 'next') {

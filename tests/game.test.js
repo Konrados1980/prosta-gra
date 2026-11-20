@@ -184,3 +184,48 @@ test("dźwięki: strzał, gwiazdka, ostrzeżenie i strzał armatki, wyciszanie k
   assert.equal(r.mutedGain, 0);
   assert.equal(r.saved, "1");
 });
+
+test("bonusy: pojawiają się na wodzie co kilka sekund lotu", () => {
+  const g = loadGame();
+  const r = g.run(`
+    menuCount = 1; startFromMenu();
+    const seen = new Set(); let onLand = 0;
+    for (let i = 0; i < 60 * 120; i++) {
+      update(1 / 60); plane.x = channelCenter(toWorldY(plane.y)); invuln = 1;
+      for (const p of powerups) if (!seen.has(p)) { seen.add(p); if (!inWater(p.x, p.wy)) onLand++; }
+      powerups = powerups.filter(p => Math.hypot(p.x - plane.x, p.wy - toWorldY(plane.y)) > 40);   // nie zbieramy
+    }
+    ({ count: seen.size, onLand, types: [...new Set([...seen].map(p => p.type))].sort() })`);
+  assert.ok(r.count >= 8, `za mało bonusów w 2 minuty: ${r.count}`);
+  assert.equal(r.onLand, 0, "bonus na lądzie");
+  assert.deepEqual([...r.types], ["life", "shield", "slow", "triple"]);
+});
+
+test("bonusy: tarcza ratuje życie, potrójny strzał, spowolnienie, życie max 5, reset w nowej grze", () => {
+  const g = loadGame();
+  const r = g.run(`
+    menuCount = 1; startFromMenu(); obstacles = []; rings = []; nextSpawn = 1e12; nextCannon = 1e12; nextPowerup = 1e12;
+    const grab = type => { powerups.push({ type, x: plane.x, wy: toWorldY(plane.y) }); update(1 / 60); };
+    // tarcza: uderzenie w skałę nie zabiera życia, tarcza znika
+    grab('shield'); invuln = 0;
+    obstacles.push({ type: 'rock', x: plane.x, wy: toWorldY(plane.y), r: 14, hp: 1, flash: 0 });
+    const l0 = lives; update(1 / 60);
+    const shield = { livesLost: l0 - lives, shieldLeft: power.shield };
+    obstacles = []; invuln = 1e9;
+    // potrójny strzał
+    grab('triple'); bullets = []; shotCd = 0; keys.Space = true; update(1 / 60); keys.Space = false;
+    const triple = bullets.length;
+    // spowolnienie: świat leci o połowę wolniej
+    const c0 = cam; update(1 / 60); const normal = cam - c0;
+    grab('slow'); const c1 = cam; update(1 / 60); const slowed = cam - c1;
+    // życie: najwyżej 5
+    for (let i = 0; i < 6; i++) grab('life');
+    const maxLives = lives;
+    newGame();
+    ({ shield, triple, ratio: slowed / normal, maxLives, afterNew: power.triple + power.slow + power.shield + powerups.length })`);
+  assert.deepEqual({ ...r.shield }, { livesLost: 0, shieldLeft: 0 });
+  assert.equal(r.triple, 3);
+  assert.ok(r.ratio > 0.45 && r.ratio < 0.55, `spowolnienie: ${r.ratio}`);
+  assert.equal(r.maxLives, 5);
+  assert.equal(r.afterNew, 0);
+});

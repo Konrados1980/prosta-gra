@@ -34,7 +34,7 @@ function recenterWorld(oldW) {
     s.c += dx;
     s.c = Math.max(s.w + 15, Math.min(W - s.w - 15, s.c));   // rzeka musi się zmieścić
   }
-  for (const list of [obstacles, rings, cannons, balls, bullets, particles, popups]) {
+  for (const list of [obstacles, rings, cannons, balls, bullets, particles, popups, powerups]) {
     for (const o of list || []) { o.x += dx; if (o.bx !== undefined) o.bx += dx; }
   }
   if (plane) { plane.x += dx; plane.px = plane.x; }

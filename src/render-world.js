@@ -87,6 +87,7 @@ function drawWorld() {
   // Złote gwiazdki (nagroda: zbierasz je przelotem)
   const t = performance.now() / 1000;
   for (const g of rings) drawStar(g.x, toScreenY(g.wy), 16, t * 2 + g.x);
+  drawPowerups();
   // Pociski: świecące smugi
   ctx.save();
   ctx.shadowColor = '#ffeb3b'; ctx.shadowBlur = 8; ctx.lineCap = 'round';

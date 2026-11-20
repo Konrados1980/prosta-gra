@@ -63,6 +63,7 @@ function sfx(name) {
     if (name === 'explosion') { noise(0.8, 0.7, 700); tone(90, 0.6, 'sawtooth', 0.25, 30); }
     if (name === 'warn') { tone(1000, 0.06, 'square', 0.1); tone(1000, 0.06, 'square', 0.1, null, 0.12); }
     if (name === 'cannon') { noise(0.3, 0.4, 450); tone(120, 0.25, 'sine', 0.35, 45); }
+    if (name === 'powerup') [660, 880, 1320].forEach((f, i) => tone(f, 0.12, 'sine', 0.25, null, i * 0.06));
     if (name === 'stage') [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.18, 'triangle', 0.2, null, i * 0.12));
   } catch (e) { /* brak dźwięku nie może zatrzymać gry */ }
 }

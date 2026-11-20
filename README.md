@@ -10,6 +10,19 @@ Prosta zręcznościówka w przeglądarce. Lecisz samolotem nad krętą rzeką, o
 
 Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie trzeba instalować.
 
+## Bonusy
+
+Co kilka sekund lotu na wodzie pojawia się świecąca ikonka. Zbierasz ją przelotem:
+
+| Bonus | Co daje | Ile trwa |
+|---|---|---|
+| 🛡 Tarcza | jedno zderzenie nie zabiera życia (wokół samolotu świeci bańka) | 10 s albo do uderzenia |
+| ✦ Potrójny strzał | 3 pociski w wachlarz | 8 s |
+| ⏳ Spowolnienie | świat zwalnia o połowę, a samolot steruje się normalnie | 5 s |
+| ♥ Życie | +1 życie (najwyżej 5) | od razu |
+
+Działające bonusy z pozostałym czasem widać w prawym górnym rogu. Rozbicie samolotu kasuje działające bonusy.
+
 ## Etapy: pory dnia
 
 Co 1000 punktów przelecianego dystansu zaczyna się nowy etap (napis „Etap 2”, „Etap 3”…) i zmienia się pora dnia: **dzień → zachód słońca → noc → zima**, a potem znowu dzień. Kolory zmieniają się płynnie. W nocy jest ciemno, a samolot oświetla drogę reflektorem; armatki, które zaraz strzelą, widać w ciemności jako czerwone światełko. Zimą trawa jest pod śniegiem, a po rzece płyną kry lodu (tylko ozdoba – nie są przeszkodą).
@@ -67,6 +80,7 @@ Gra to zwykła strona: `index.html` (szkielet), `style.css` (wygląd) i skrypty 
 | [src/obstacles.js](src/obstacles.js) | przeszkody: rodzaje, punkty, rozmieszczanie, ruch |
 | [src/game.js](src/game.js) | nowa gra i logika każdej klatki (ruch, strzały, zderzenia) |
 | [src/combat.js](src/combat.js) | rozbicie samolotu, armatki, trafienia, punkty, wybuchy |
+| [src/powerups.js](src/powerups.js) | bonusy: pojawianie się, zbieranie, działanie, ikony, bańka tarczy, liczniki |
 | [src/stages.js](src/stages.js) | etapy: kolory pór dnia, przejścia, noc z reflektorem, kry, napis „Etap N” |
 | [src/render-world.js](src/render-world.js) | rysowanie trawy, rzeki, plaż, fal, wysp |
 | [src/render-objects.js](src/render-objects.js) | rysowanie drzew, armatek i przeszkód |

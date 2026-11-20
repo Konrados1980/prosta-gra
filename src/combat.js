@@ -2,6 +2,7 @@
 function crash() {
   explosion(plane.x, plane.y);
   lives--;
+  power = { shield: 0, triple: 0, slow: 0 };   // rozbicie kasuje działające bonusy
   if (lives <= 0) {
     endTurn();
     return;
