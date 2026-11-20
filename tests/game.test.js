@@ -116,3 +116,28 @@ test("imię gracza nie może wstrzyknąć HTML", () => {
   const g = loadGame();
   assert.equal(g.run("esc('<b>Ola</b>')"), "&lt;b&gt;Ola&lt;/b&gt;");
 });
+
+test("etapy: co 1000 pkt dystansu nowa pora dnia, po zimie wraca dzień", () => {
+  const g = loadGame();
+  const r = g.run(`[0, 9000, 10000, 20000, 30000, 40000].map(c => { const s = stageInfo(c); return s.n + ':' + s.name; })`);
+  assert.deepEqual([...r], ["1:Dzień", "1:Dzień", "2:Zachód słońca", "3:Noc", "4:Zima", "5:Dzień"]);
+  // płynne przejście: w połowie zmiany kolor trawy jest między dniem a zachodem
+  const mid = g.run(`stageInfo(STAGE_LENGTH - STAGE_BLEND / 2).pal.grass[0]`);
+  assert.ok(mid > 61 && mid < 92, `kolor w przejściu: ${mid}`);
+});
+
+test("etapy: napis „Etap N” przy zmianie i rysowanie każdej pory bez błędu (noc, zima)", () => {
+  const g = loadGame();
+  const r = g.run(`
+    menuCount = 1; startFromMenu();
+    cam = STAGE_LENGTH - 5; update(1 / 60);
+    const before = stageBanner;
+    cam = STAGE_LENGTH + 5; update(1 / 60);
+    const banner = stageBanner && stageBanner.text + ' ' + stageBanner.sub;
+    for (const c of [5000, 15000, 25000, 35000, 29000]) { cam = c; invuln = 1; update(1 / 60); draw(); }
+    newGame(); update(1 / 60);
+    ({ before, banner, afterNewGame: curStage })`);
+  assert.equal(r.before, null);
+  assert.equal(r.banner, "Etap 2 Zachód słońca");
+  assert.equal(r.afterNewGame, 1, "nowa gra nie wraca do etapu 1");
+});

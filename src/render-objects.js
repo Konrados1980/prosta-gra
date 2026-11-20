@@ -14,9 +14,10 @@ function drawTrees() {
       const y = toScreenY(wy);
       const dark = hash(i, k + 90) < 0.3;          // część drzew to ciemne iglaki
       circle(x + 5, y + 6, size, 'rgba(0,0,0,.22)');                         // cień
-      circle(x, y, size, dark ? '#1b5e20' : '#2e7d32');
-      circle(x - size * 0.25, y - size * 0.25, size * 0.65, dark ? '#2e7d32' : '#43a047');
-      circle(x - size * 0.4, y - size * 0.4, size * 0.3, dark ? '#388e3c' : '#66bb6a');
+      const c = dark ? pal.pine : pal.tree;         // kolory zależą od pory dnia (zimą ośnieżone czubki)
+      circle(x, y, size, rgba(c[0]));
+      circle(x - size * 0.25, y - size * 0.25, size * 0.65, rgba(c[1]));
+      circle(x - size * 0.4, y - size * 0.4, size * 0.3, rgba(c[2]));
     }
   }
 }

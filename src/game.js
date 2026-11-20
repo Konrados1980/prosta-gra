@@ -50,6 +50,7 @@ function update(dt) {
   cam += speed * dt;
   gt += dt;
   score = Math.floor(cam / 10) + bonus;
+  updateStage(dt);                // nowy etap = nowa pora dnia (src/stages.js)
   moveObstacles(dt);
 
   // Strzelanie: Spacja albo X (można trzymać)

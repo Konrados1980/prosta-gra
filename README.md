@@ -10,6 +10,10 @@ Prosta zręcznościówka w przeglądarce. Lecisz samolotem nad krętą rzeką, o
 
 Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie trzeba instalować.
 
+## Etapy: pory dnia
+
+Co 1000 punktów przelecianego dystansu zaczyna się nowy etap (napis „Etap 2”, „Etap 3”…) i zmienia się pora dnia: **dzień → zachód słońca → noc → zima**, a potem znowu dzień. Kolory zmieniają się płynnie. W nocy jest ciemno, a samolot oświetla drogę reflektorem; armatki, które zaraz strzelą, widać w ciemności jako czerwone światełko. Zimą trawa jest pod śniegiem, a po rzece płyną kry lodu (tylko ozdoba – nie są przeszkodą).
+
 ## Gra dla 1–4 graczy
 
 W menu wybierz liczbę graczy (1–4) i wpisz imiona. Gracze grają po kolei, każdy ma 3 życia. Po ostatnim graczu pojawiają się wyniki rundy (ze zwycięzcą 🏆) i tabela 10 najlepszych wyników. Rekordy i imiona zapisują się w przeglądarce, więc zostają po zamknięciu strony (na tym samym komputerze i w tej samej przeglądarce). Rekordy można wyczyścić przyciskiem „Wyczyść rekordy”.
@@ -59,6 +63,7 @@ Gra to zwykła strona: `index.html` (szkielet), `style.css` (wygląd) i skrypty 
 | [src/obstacles.js](src/obstacles.js) | przeszkody: rodzaje, punkty, rozmieszczanie, ruch |
 | [src/game.js](src/game.js) | nowa gra i logika każdej klatki (ruch, strzały, zderzenia) |
 | [src/combat.js](src/combat.js) | rozbicie samolotu, armatki, trafienia, punkty, wybuchy |
+| [src/stages.js](src/stages.js) | etapy: kolory pór dnia, przejścia, noc z reflektorem, kry, napis „Etap N” |
 | [src/render-world.js](src/render-world.js) | rysowanie trawy, rzeki, plaż, fal, wysp |
 | [src/render-objects.js](src/render-objects.js) | rysowanie drzew, armatek i przeszkód |
 | [src/render-plane.js](src/render-plane.js) | gwiazdki, napisy z punktami, samolot |

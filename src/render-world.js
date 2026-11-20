@@ -17,14 +17,15 @@ function edgeLine(rows, xOf) {
 
 function drawWorld() {
   const anim = performance.now() / 1000;
+  pal = stageInfo(cam).pal;                     // kolory bieżącej pory dnia (src/stages.js)
   // Ląd: trawa z jaśniejszymi i ciemniejszymi kępami
-  ctx.fillStyle = '#3d8b3d';
+  ctx.fillStyle = rgba(pal.grass);
   ctx.fillRect(0, 0, W, H);
   const PATCH = 70;
   for (let i = Math.floor(cam / PATCH) - 1; i <= Math.floor((cam + H) / PATCH) + 1; i++) {
     for (let k = 0; k < 3 + W / 300; k++) {
       const x = hash(i, k) * W, sy = toScreenY(i * PATCH + hash(i, k + 9) * PATCH);
-      ctx.fillStyle = hash(i, k + 3) < 0.5 ? 'rgba(0,60,0,.13)' : 'rgba(170,220,120,.10)';
+      ctx.fillStyle = rgba(hash(i, k + 3) < 0.5 ? pal.patchDark : pal.patchLight);
       ctx.beginPath(); ctx.ellipse(x, sy, 20 + hash(i, k + 5) * 30, 12 + hash(i, k + 7) * 16, 0, 0, Math.PI * 2); ctx.fill();
     }
   }
@@ -34,13 +35,13 @@ function drawWorld() {
   for (let y = -12; y <= H + 12; y += 6) rows.push({ y, r: riverAt(toWorldY(y)) });
 
   // Piaszczysta plaża, woda, głębia na środku
-  riverPath(rows, r => r.w + 8);  ctx.fillStyle = '#d9c48f'; ctx.fill();
-  riverPath(rows, r => r.w + 3);  ctx.fillStyle = '#b8a26a'; ctx.fill();
-  riverPath(rows, r => r.w);      ctx.fillStyle = '#2196f3'; ctx.fill();
-  riverPath(rows, r => r.w * 0.6); ctx.fillStyle = 'rgba(13,71,161,.28)'; ctx.fill();
-  riverPath(rows, r => r.w * 0.3); ctx.fillStyle = 'rgba(13,71,161,.18)'; ctx.fill();
+  riverPath(rows, r => r.w + 8);  ctx.fillStyle = rgba(pal.sand); ctx.fill();
+  riverPath(rows, r => r.w + 3);  ctx.fillStyle = rgba(pal.wetSand); ctx.fill();
+  riverPath(rows, r => r.w);      ctx.fillStyle = rgba(pal.water); ctx.fill();
+  riverPath(rows, r => r.w * 0.6); ctx.fillStyle = rgba(pal.deep); ctx.fill();
+  riverPath(rows, r => r.w * 0.3); ctx.fillStyle = rgba(pal.deep); ctx.globalAlpha = 0.65; ctx.fill(); ctx.globalAlpha = 1;
   // Piana przy brzegach
-  ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.strokeStyle = rgba(pal.foam); ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
   edgeLine(rows, r => r.c - r.w + 1); ctx.stroke();
   edgeLine(rows, r => r.c + r.w - 1); ctx.stroke();
 
@@ -61,14 +62,15 @@ function drawWorld() {
   let run = [];
   const flush = () => {
     if (run.length > 1) {
-      riverPath(run, r => r.iw + 6 * Math.min(1, r.iw / 6)); ctx.fillStyle = '#d9c48f'; ctx.fill();   // końce wyspy zwężają się w szpic
-      ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2.5; ctx.stroke();
-      riverPath(run, r => Math.max(0, r.iw - 1)); ctx.fillStyle = '#3d8b3d'; ctx.fill();
+      riverPath(run, r => r.iw + 6 * Math.min(1, r.iw / 6)); ctx.fillStyle = rgba(pal.sand); ctx.fill();   // końce wyspy zwężają się w szpic
+      ctx.strokeStyle = rgba(pal.foam); ctx.lineWidth = 2.5; ctx.stroke();
+      riverPath(run, r => Math.max(0, r.iw - 1)); ctx.fillStyle = rgba(pal.grass); ctx.fill();
     }
     run = [];
   };
   for (const p of rows) { if (p.r.iw > 0.5) run.push(p); else flush(); }
   flush();
+  drawIce();
 
   drawTrees();
   // Przeszkody (wiry najpierw, bo leżą "pod" resztą)

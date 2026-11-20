@@ -69,6 +69,7 @@ function loadGame({ width = 600, height = 800 } = {}) {
       addEventListener() {},
       exitFullscreen() {},
       getElementById: id => (elements[id] ||= fakeElement()),
+      createElement: () => fakeElement({ width: 1, height: 1, getContext: () => fakeCanvasContext() }),
     },
   };
   vm.createContext(sandbox);
