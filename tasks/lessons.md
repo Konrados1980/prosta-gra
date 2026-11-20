@@ -61,3 +61,9 @@ Zapisuj tu powtarzalne problemy ujawnione podczas pracy. Każdy wpis powinien ws
 - **Przyczyna:** `check:diff-size` liczy linie usunięte z `index.html` i dodane w nowym pliku, więc przeniesienie 125 linii to ok. 250 linii zmiany.
 - **Reguła:** duży plik dziel w kilku zadaniach, po ok. 120 linii, zawsze od góry skryptu, żeby kolejność wykonania kodu się nie zmieniła.
 - **Sprawdzenie:** `npm run gate:local` po każdym kroku (podział na 13 plików: 12 zadań, wszystkie PASS).
+
+## 11. Podgląd w panelu przeglądarki „stoi”, gdy panel jest w tle (wersje 1.9–2.2)
+
+- **Przyczyna:** gdy panel przeglądarki w aplikacji jest ukryty albo w tle, strona nie dostaje klatek animacji (`requestAnimationFrame`), więc gra nie leci, a gra sama się pauzuje (`visibilitychange`). Wygląda to jak błąd gry, ale nim nie jest.
+- **Reguła:** przed testem na żywo sprawdź `document.hidden` i czy `last` (czas ostatniej klatki) się zmienia; jeśli strona jest ukryta, sprawdzaj logikę przez ręczne wywołanie `update(1/60)` i `draw()`, a w raporcie napisz, że gry klawiszami nie było.
+- **Sprawdzenie:** w raporcie zadania pole „Ryzyka” mówi, czy grano klawiszami na żywo.

@@ -85,4 +85,5 @@ function loop(now) {
   // nawet gdyby rysowanie kiedyś rzuciło błąd, pętla gry działa dalej
   requestAnimationFrame(loop);
   try { draw(); } catch (e) { console.error(e); }
+  updateEngine(state === 'play');   // szum silnika tylko w trakcie lotu
 }

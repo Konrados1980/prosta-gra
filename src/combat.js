@@ -52,9 +52,12 @@ function updateCannons(dt) {
     const sy = toScreenY(c.wy);
     // strzela tylko, gdy jest na ekranie i wyraźnie przed samolotem (uczciwie: widzisz ją wcześniej)
     if (sy < 60 || sy > plane.y - 60) continue;
+    const before = c.cd;
     c.cd -= dt;
+    if (before >= CHARGE_TIME && c.cd < CHARGE_TIME) sfx('warn');   // lufa zaczyna świecić
     if (c.cd <= 0) {
       balls.push({ x: c.x + c.dir * 22, wy: c.wy, vx: c.dir * BALL_SPEED, wet: false });
+      sfx('cannon');
       burst(c.x + c.dir * 22, sy, '#ffcc80', 8);
       c.cd = 2.2 + Math.random() * 1.3;
     }
@@ -75,7 +78,7 @@ function hitCannon(c, b) {
   const sy = toScreenY(c.wy);
   b.dead = true;
   c.hp--; c.flash = 0.12;
-  if (c.hp > 0) { burst(b.x, sy, '#ffffff', 6); return; }
+  if (c.hp > 0) { burst(b.x, sy, '#ffffff', 6); sfx('hit'); return; }
   c.dead = true;
   bonus += CANNON_POINTS;
   explosion(c.x, sy);
@@ -87,8 +90,9 @@ function hitObstacle(o, b) {
   const T = TYPES[o.type], sy = toScreenY(o.wy);
   b.dead = true;
   o.hp--; o.flash = 0.12;
-  if (o.hp > 0) { burst(b.x, sy, '#ffffff', 6); return; }
+  if (o.hp > 0) { burst(b.x, sy, '#ffffff', 6); sfx('hit'); return; }
   o.dead = true;
+  sfx('break');
   bonus += T.pts;
   burst(o.x, sy, T.color, 14 + T.pts / 2);
   popup(o.x, sy, '+' + T.pts, T.color, T.pts >= 25 ? 30 : 24);
@@ -105,6 +109,7 @@ function burst(x, y, color, n) {
 }
 // Duży wybuch: błysk, rozchodzący się pierścień, ogień i dym
 function explosion(x, y) {
+  sfx('explosion');
   particles.push({ x, y, vx: 0, vy: 0, life: 0.5, ring: true });
   burst(x, y, '#fff59d', 10);
   burst(x, y, '#ff9800', 18);

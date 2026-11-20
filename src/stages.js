@@ -47,7 +47,7 @@ function stageInfo(camPos) {
 // Wywoływane co klatkę gry: wykrywa nowy etap i pokazuje napis
 function updateStage(dt) {
   const n = stageInfo(cam).n;
-  if (n > curStage) stageBanner = { text: `Etap ${n}`, sub: stageInfo(cam).name, life: 2.5 };
+  if (n > curStage) { stageBanner = { text: `Etap ${n}`, sub: stageInfo(cam).name, life: 2.5 }; sfx('stage'); }
   curStage = n;
   if (stageBanner && (stageBanner.life -= dt) <= 0) stageBanner = null;
 }

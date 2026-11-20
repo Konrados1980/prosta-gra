@@ -41,7 +41,7 @@ function gameScripts() {
   });
 }
 
-function loadGame({ width = 600, height = 800 } = {}) {
+function loadGame({ width = 600, height = 800, extra = {} } = {}) {
   const scripts = gameScripts();
 
   const ctx2d = fakeCanvasContext();
@@ -72,6 +72,7 @@ function loadGame({ width = 600, height = 800 } = {}) {
       createElement: () => fakeElement({ width: 1, height: 1, getContext: () => fakeCanvasContext() }),
     },
   };
+  Object.assign(sandbox, extra);   // np. udawany AudioContext w testach dźwięku
   vm.createContext(sandbox);
   // jak w przeglądarce: każdy skrypt osobno, ale wszystkie widzą wspólne zmienne globalne
   for (const s of scripts) vm.runInContext(s.code, sandbox, { filename: s.name });

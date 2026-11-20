@@ -29,6 +29,9 @@ Zmiana graczy lub imion: na ekranie wyników kliknij „Zmień graczy / imiona�
 - P pauza
 - Enter start i nowa gra
 - F pełny ekran (albo przycisk „Pełny ekran” pod grą; wyjście: F lub Esc)
+- D dźwięk włącz / wyłącz (albo przycisk „Dźwięk” pod grą; wybór jest zapamiętany)
+
+Dźwięki (strzał, trafienie, rozbicie, gwiazdka, wybuch, ostrzeżenie i strzał armatki, nowy etap, szum silnika) są tworzone w kodzie przez Web Audio – bez plików dźwiękowych. Włączają się po pierwszym naciśnięciu klawisza albo kliknięciu (tak działają przeglądarki).
 
 Plansza dopasowuje się do szerokości okna: na szerokim monitorze widać więcej, a rzeka jest trochę szersza.
 
@@ -58,6 +61,7 @@ Gra to zwykła strona: `index.html` (szkielet), `style.css` (wygląd) i skrypty 
 | Plik | Co zawiera |
 |---|---|
 | [src/screen.js](src/screen.js) | rozmiar planszy, pełny ekran, przesuwanie świata po zmianie okna |
+| [src/sound.js](src/sound.js) | dźwięki (Web Audio), szum silnika, wyciszanie |
 | [src/input.js](src/input.js) | stan gry, klawiatura, sterowanie dotykiem |
 | [src/river.js](src/river.js) | rzeka: odcinki, szerokość, wyspy, sprawdzanie wody |
 | [src/obstacles.js](src/obstacles.js) | przeszkody: rodzaje, punkty, rozmieszczanie, ruch |

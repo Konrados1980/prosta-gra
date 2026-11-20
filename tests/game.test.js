@@ -141,3 +141,46 @@ test("etapy: napis „Etap N” przy zmianie i rysowanie każdej pory bez błęd
   assert.equal(r.banner, "Etap 2 Zachód słońca");
   assert.equal(r.afterNewGame, 1, "nowa gra nie wraca do etapu 1");
 });
+
+// Udawany „syntezator” przeglądarki: liczy utworzone dźwięki
+function fakeAudio() {
+  const stats = { oscillators: 0, noises: 0 };
+  const param = () => ({ value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}, linearRampToValueAtTime() {}, setTargetAtTime(v) { this.value = v; } });
+  const node = extra => ({ connect() {}, start() {}, stop() {}, gain: param(), frequency: param(), ...extra });
+  class AudioContext {
+    constructor() { this.currentTime = 0; this.sampleRate = 8000; this.destination = {}; this.state = "running"; }
+    createGain() { return node(); }
+    createOscillator() { stats.oscillators++; return node(); }
+    createBiquadFilter() { return node(); }
+    createBufferSource() { stats.noises++; return node(); }
+    createBuffer(ch, len) { return { getChannelData: () => new Float32Array(len) }; }
+  }
+  return { AudioContext, stats };
+}
+
+test("dźwięki: bez obsługi dźwięku w przeglądarce gra działa dalej", () => {
+  const g = loadGame();
+  assert.doesNotThrow(() => g.run("initAudio(); sfx('shot'); sfx('explosion'); updateEngine(true)"));
+  assert.deepEqual([...g.run("soundLog")], ["shot", "explosion"]);
+});
+
+test("dźwięki: strzał, gwiazdka, ostrzeżenie i strzał armatki, wyciszanie klawiszem D", () => {
+  const fa = fakeAudio();
+  const g = loadGame({ extra: { AudioContext: fa.AudioContext } });
+  const r = g.run(`
+    initAudio(); menuCount = 1; startFromMenu(); invuln = 1e9;
+    obstacles = []; rings = []; nextSpawn = 1e12; nextCannon = 1e12;
+    keys.Space = true; update(1 / 60); keys.Space = false;                     // strzał
+    rings.push({ x: plane.x, wy: toWorldY(plane.y), got: false }); update(1 / 60);   // gwiazdka
+    const rr = riverAt(cam + 400);
+    cannons.push({ x: rr.c - rr.w - 22, wy: cam + 400, dir: 1, hp: 2, cd: CHARGE_TIME + 0.05, flash: 0 });
+    for (let i = 0; i < 60; i++) update(1 / 60);                               // ostrzeżenie, potem strzał
+    const log = soundLog.slice();
+    toggleMute();
+    ({ log, mutedGain: master.gain.value, saved: localStorage.getItem('lotNadRzeka_mute') })`);
+  for (const s of ["shot", "star", "warn", "cannon"]) assert.ok(r.log.includes(s), `brak dźwięku ${s}: ${r.log}`);
+  assert.ok(r.log.indexOf("warn") < r.log.indexOf("cannon"), "ostrzeżenie musi być przed strzałem armatki");
+  assert.ok(fa.stats.oscillators > 0 && fa.stats.noises > 0, "dźwięki nie zostały zagrane");
+  assert.equal(r.mutedGain, 0);
+  assert.equal(r.saved, "1");
+});

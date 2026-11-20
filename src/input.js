@@ -30,6 +30,7 @@ addEventListener('keydown', e => {
     else if (state === 'results') startRound();
   }
   if (e.code === 'KeyF') toggleFullscreen();
+  if (e.code === 'KeyD') toggleMute();            // włącz / wyłącz dźwięk (src/sound.js)
   // M: powrót do menu (zmiana graczy i imion) z pauzy, między turami albo z wyników
   if (e.code === 'KeyM' && (state === 'pause' || state === 'next' || state === 'results')) showMenu();
   if (e.code === 'KeyP' && (state === 'play' || state === 'pause')) {

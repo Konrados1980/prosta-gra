@@ -57,6 +57,7 @@ function update(dt) {
   shotCd -= dt;
   if ((keys.Space || keys.KeyX || wantShot) && shotCd <= 0) {
     bullets.push({ x: plane.x, wy: toWorldY(plane.y - 18) });
+    sfx('shot');
     shotCd = SHOT_DELAY;
     wantShot = false;
   }
@@ -69,7 +70,7 @@ function update(dt) {
     if (cn) { hitCannon(cn, b); continue; }
     const ball = balls.find(k => !k.dead && Math.hypot(k.x - b.x, k.wy - b.wy) < BALL_R + 5);
     if (ball) {
-      ball.dead = true; b.dead = true; bonus += BALL_POINTS;
+      ball.dead = true; b.dead = true; bonus += BALL_POINTS; sfx('hit');
       burst(ball.x, toScreenY(ball.wy), '#bdbdbd', 10);
       popup(ball.x, toScreenY(ball.wy), '+' + BALL_POINTS, '#bdbdbd', 18);
       continue;
@@ -98,7 +99,7 @@ function update(dt) {
   const pwy = toWorldY(plane.y);
   for (const g of rings) {
     if (Math.hypot(g.x - plane.x, g.wy - pwy) < 26) {
-      g.got = true; bonus += 25;
+      g.got = true; bonus += 25; sfx('star');
       burst(g.x, toScreenY(g.wy), '#ffd54a', 14);
       popup(g.x, toScreenY(g.wy), '+25', '#ffd54a');
     }
