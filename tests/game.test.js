@@ -198,7 +198,21 @@ test("bonusy: pojawiają się na wodzie co kilka sekund lotu", () => {
     ({ count: seen.size, onLand, types: [...new Set([...seen].map(p => p.type))].sort() })`);
   assert.ok(r.count >= 8, `za mało bonusów w 2 minuty: ${r.count}`);
   assert.equal(r.onLand, 0, "bonus na lądzie");
-  assert.deepEqual([...r.types], ["life", "shield", "slow", "triple"]);
+  // życie jest rzadkie (1 na 9), więc w 2 minuty może się nie trafić – tu sprawdzamy tylko poprawne rodzaje
+  for (const t of r.types) assert.ok(["life", "shield", "slow", "triple"].includes(t), `nieznany bonus: ${t}`);
+});
+
+test("bonusy: losowanie – są wszystkie rodzaje, życie najrzadsze i znika przy 5 życiach", () => {
+  const g = loadGame();
+  const r = g.run(`
+    newGame();
+    const count = n => { const c = {}; for (let i = 0; i < n; i++) { const t = pickPower(); c[t] = (c[t] || 0) + 1; } return c; };
+    lives = 3; const normal = count(3000);
+    lives = MAX_LIVES; const full = count(1000);
+    ({ normal, full })`);
+  for (const t of ["life", "shield", "slow", "triple"]) assert.ok(r.normal[t] > 0, `brak bonusu ${t} w 3000 losowaniach`);
+  assert.ok(r.normal.life < r.normal.slow && r.normal.slow < r.normal.shield, "życie ma być najrzadsze");
+  assert.equal(r.full.life, undefined, "przy 5 życiach nie powinno losować życia");
 });
 
 test("bonusy: tarcza ratuje życie, potrójny strzał, spowolnienie, życie max 5, reset w nowej grze", () => {

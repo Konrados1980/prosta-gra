@@ -80,3 +80,6 @@ Jak sprawdzono: npm run gate:local PASS.
 PASS / FAIL: PASS
 Ryzyka: brak – tylko dokumentacja.
 Follow-up: opcja 1 w następnej sesji.
+
+## Sprostowanie (dopisane w zadaniu 2026-11-20-niestabilny-test-bonusow)
+Wynik PASS powyżej był błędny: `npm run gate:local` zwrócił `check:project-gates FAIL` (test „bonusy: pojawiają się na wodzie…” padł losowo), a zadanie zamknięto i wysłano mimo to. Sama zmiana (ParkingLot.md) była poprawna. Przyczyna i reguła: tasks/lessons.md, lekcja 12.

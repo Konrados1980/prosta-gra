@@ -67,3 +67,9 @@ Zapisuj tu powtarzalne problemy ujawnione podczas pracy. Każdy wpis powinien ws
 - **Przyczyna:** gdy panel przeglądarki w aplikacji jest ukryty albo w tle, strona nie dostaje klatek animacji (`requestAnimationFrame`), więc gra nie leci, a gra sama się pauzuje (`visibilitychange`). Wygląda to jak błąd gry, ale nim nie jest.
 - **Reguła:** przed testem na żywo sprawdź `document.hidden` i czy `last` (czas ostatniej klatki) się zmienia; jeśli strona jest ukryta, sprawdzaj logikę przez ręczne wywołanie `update(1/60)` i `draw()`, a w raporcie napisz, że gry klawiszami nie było.
 - **Sprawdzenie:** w raporcie zadania pole „Ryzyka” mówi, czy grano klawiszami na żywo.
+
+## 12. Test zależny od losowości padał co trzeci raz, a zadanie zamknięto mimo FAIL (wersja 2.3)
+
+- **Przyczyna:** test wymagał, żeby w 2 minuty lotu pojawiły się wszystkie rodzaje bonusów, a „życie” wypada rzadko (1 na 9) – w ok. 30% przebiegów go nie było. Przy zadaniu „plan-3d-na-jutro” komendy były połączone tak, że `task:close --result PASS`, commit i push wykonały się mimo `check:project-gates FAIL` (test nie przeszedł).
+- **Reguła:** testy nie mogą zależeć od szczęścia – rzadkie zdarzenia sprawdzaj na dużej liczbie losowań albo ustalonych danych; po `gate:local` zamykaj zadanie tylko, gdy bramka zwróciła kod 0 (np. `npm run gate:local && npm run task:close -- --result PASS`).
+- **Sprawdzenie:** `npm test` uruchomiony 10 razy z rzędu bez błędu; test „bonusy: losowanie” na 3000 losowań.
