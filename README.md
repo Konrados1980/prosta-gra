@@ -14,6 +14,8 @@ Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie t
 
 Nad samolotem płyną chmury na dwóch wysokościach – przesuwają się szybciej niż ziemia (wyższe najszybciej), a ich cienie suną po ziemi i wodzie. Samolot lekko faluje w górę i w dół: wznosi się, gdy przyspieszasz (↑), i obniża, gdy hamujesz (↓) – im wyżej, tym jest większy, a jego cień dalej. To tylko wygląd: zderzenia działają tak samo na każdej wysokości.
 
+Świat jest rysowany lekko z ukosa: drzewa mają pień i uniesioną koronę (iglaki to stożki z jaśniejszą stroną od słońca, zimą z ośnieżonymi czubkami), a skały i głazy mają ciemny bok i jasny wierzch. Wszystko rzuca cień w prawo w dół, jakby słońce świeciło z lewej góry. Bliższe drzewa zasłaniają dalsze.
+
 ## Bonusy
 
 Co kilka sekund lotu na wodzie pojawia się świecąca ikonka. Zbierasz ją przelotem:

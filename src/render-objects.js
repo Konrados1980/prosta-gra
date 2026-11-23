@@ -1,8 +1,10 @@
 // rysowanie drzew, armatek i przeszkód
-// Drzewa na lądzie i na wyspach (z cieniem); stoją zawsze w tych samych miejscach świata
+// Drzewa na lądzie i na wyspach; stoją zawsze w tych samych miejscach świata.
+// Widok lekko z ukosa („trochę 3D”): pień, korona uniesiona nad ziemią, długi cień w prawo w dół
+// (słońce z lewej góry, jak przy samolocie). Bliższe drzewa (niżej na ekranie) zasłaniają dalsze.
 function drawTrees() {
-  const ROW = 30;
-  for (let i = Math.floor(cam / ROW) - 2; i <= Math.floor((cam + H) / ROW) + 2; i++) {
+  const ROW = 30, list = [];
+  for (let i = Math.floor(cam / ROW) - 2; i <= Math.floor((cam + H) / ROW) + 3; i++) {
     const n = Math.round((2 + hash(i, 1) * 3) * W / 480);
     for (let k = 0; k < n; k++) {
       const x = hash(i, k + 40) * W, wy = i * ROW + hash(i, k + 60) * ROW;
@@ -10,16 +12,39 @@ function drawTrees() {
       // nie stawiamy drzew na plaży ani w wodzie
       const r = riverAt(wy), d = Math.abs(x - r.c);
       const onLand = d > r.w + size + 10, onIsland = r.iw > 0 && d < r.iw - size - 3;
-      if (!onLand && !onIsland) continue;
-      const y = toScreenY(wy);
-      const dark = hash(i, k + 90) < 0.3;          // część drzew to ciemne iglaki
-      circle(x + 5, y + 6, size, 'rgba(0,0,0,.22)');                         // cień
-      const c = dark ? pal.pine : pal.tree;         // kolory zależą od pory dnia (zimą ośnieżone czubki)
-      circle(x, y, size, rgba(c[0]));
-      circle(x - size * 0.25, y - size * 0.25, size * 0.65, rgba(c[1]));
-      circle(x - size * 0.4, y - size * 0.4, size * 0.3, rgba(c[2]));
+      if (onLand || onIsland) list.push({ x, y: toScreenY(wy), size, pine: hash(i, k + 90) < 0.3 });
     }
   }
+  const shadow = `rgba(0,0,0,${0.24 * (1 - 0.5 * pal.dark)})`;
+  for (const t of list) ellipse(t.x + t.size * 0.9, t.y + t.size * 0.35, t.size * 1.25, t.size * 0.55, 0.45, shadow);
+  list.sort((a, b) => a.y - b.y);
+  for (const t of list) drawTree(t);
+}
+function drawTree({ x, y, size, pine }) {
+  if (pine) size *= 1.35;                                  // iglaki są wyższe i szersze od liściastych
+  const h = size * 1.2, c = pine ? pal.pine : pal.tree;   // kolory zależą od pory dnia (zimą ośnieżone czubki)
+  ctx.fillStyle = '#5d4037'; ctx.fillRect(x - 1.5, y - h * 0.55, 3, h * 0.55);   // pień
+  if (pine) {
+    // iglak: trzy piętra stożka, lewa strona jaśniejsza (słońce), prawa ciemniejsza
+    for (let k = 0; k < 3; k++) {
+      const base = y - h * 0.35 - k * size * 0.55, top = base - size * 0.95, half = size * (0.95 - k * 0.22);
+      tri(x - half, base, x, top, x, base, rgba(c[1]));
+      tri(x, top, x + half, base, x, base, rgba(c[0]));
+    }
+    tri(x - size * 0.22, y - h * 0.35 - size * 1.55, x, y - h * 0.35 - size * 2.05, x + size * 0.22, y - h * 0.35 - size * 1.55, rgba(c[2]));
+  } else {
+    const cy = y - h * 0.75;
+    circle(x + size * 0.12, cy + size * 0.12, size, rgba(c[0]));                    // ciemny spód i prawa strona
+    circle(x - size * 0.15, cy - size * 0.15, size * 0.78, rgba(c[1]));
+    circle(x - size * 0.4, cy - size * 0.4, size * 0.32, rgba(c[2]));               // odblask słońca
+  }
+}
+function tri(x1, y1, x2, y2, x3, y3, color) {
+  ctx.fillStyle = color; ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3); ctx.closePath(); ctx.fill();
+}
+function ellipse(x, y, rx, ry, rot, color) {
+  if (!(rx > 0 && ry > 0)) return;
+  ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.fill();
 }
 
 function circle(x, y, r, color) {
@@ -29,6 +54,8 @@ function circle(x, y, r, color) {
 }
 function drawCannon(c) {
   const x = c.x, y = toScreenY(c.wy), d = c.dir;
+  ellipse(x + 10, y + 9, 20, 10, 0.3, 'rgba(0,0,0,.25)');                // cień
+  ctx.fillStyle = '#3e2723'; ctx.fillRect(x - 14, y + 6, 28, 6);              // bok podstawy
   ctx.fillStyle = '#5d4037';                                          // drewniana podstawa
   ctx.fillRect(x - 14, y - 10, 28, 20);
   // lufa: świeci na czerwono, gdy armatka zaraz wystrzeli
@@ -45,28 +72,35 @@ function drawCannon(c) {
 
 function drawObstacle(o) {
   const x = o.x, y = toScreenY(o.wy), r = o.r;
-  if (o.type === 'rock') {
-    circle(x, y, r, '#5d5d5d');
-    circle(x - r * 0.3, y - r * 0.3, r * 0.45, '#8a8a8a');
+  // skała i głaz jako bryły: cień, piana przy podstawie, ciemny bok, jasny wierzch uniesiony o wysokość
+  if (o.type === 'rock' || o.type === 'boulder') {
+    const big = o.type === 'boulder', hgt = r * 0.45;
+    ellipse(x + r * 0.55, y + r * 0.35, r * 1.15, r * 0.7, 0.4, 'rgba(0,0,0,.3)');
+    ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(x, y + r * 0.2, r + 3, (r + 3) * 0.55, 0, 0, Math.PI * 2); ctx.stroke();
+    ellipse(x, y, r, r * 0.8, 0, big ? '#4a3c30' : '#424242');                    // bok
+    ellipse(x, y - hgt, r * 0.95, r * 0.75, 0, big ? '#7d6b5a' : '#6e6e6e');      // wierzch
+    ellipse(x - r * 0.3, y - hgt - r * 0.2, r * 0.38, r * 0.25, -0.4, big ? '#a08c78' : '#9e9e9e');
   }
   if (o.type === 'boulder') {
-    circle(x + 3, y + 4, r, 'rgba(0,0,0,.25)');            // cień
-    circle(x, y, r, '#6d5c4d');
-    circle(x - r * 0.3, y - r * 0.35, r * 0.5, '#8d7b6a');
+    const ty = y - r * 0.45;                               // rysy na wierzchu głazu
     // rysy: im więcej trafień, tym więcej pęknięć
     const damage = TYPES.boulder.hp - o.hp;
     ctx.strokeStyle = '#2b2118'; ctx.lineWidth = 2;
     for (let i = 0; i < damage * 2; i++) {
       const a = i * 2.4 + 0.5;
-      ctx.beginPath(); ctx.moveTo(x, y);
-      ctx.lineTo(x + Math.cos(a) * r * 0.5, y + Math.sin(a) * r * 0.5 + 3);
-      ctx.lineTo(x + Math.cos(a + 0.3) * r * 0.95, y + Math.sin(a + 0.3) * r * 0.95);
+      ctx.beginPath(); ctx.moveTo(x, ty);
+      ctx.lineTo(x + Math.cos(a) * r * 0.5, ty + Math.sin(a) * r * 0.4 + 3);
+      ctx.lineTo(x + Math.cos(a + 0.3) * r * 0.95, ty + Math.sin(a + 0.3) * r * 0.7);
       ctx.stroke();
     }
   }
   if (o.type === 'log') {
     const L = o.len / 2;
-    ctx.fillStyle = '#6d4c41';
+    ellipse(x + 6, y + 6, L + 2, r, 0, 'rgba(0,0,0,.25)');            // cień na wodzie
+    const lg = ctx.createLinearGradient(0, y - r, 0, y + r);       // walec: jasna góra, ciemny dół
+    lg.addColorStop(0, '#a1887f'); lg.addColorStop(0.5, '#6d4c41'); lg.addColorStop(1, '#3e2723');
+    ctx.fillStyle = lg;
     ctx.beginPath(); ctx.roundRect(x - L, y - r, o.len, r * 2, r); ctx.fill();
     ctx.strokeStyle = '#4e342e'; ctx.lineWidth = 1.5;                     // kora
     for (let i = -L + 10; i < L - 6; i += 12) { ctx.beginPath(); ctx.moveTo(x + i, y - r + 2); ctx.lineTo(x + i + 6, y + r - 2); ctx.stroke(); }
@@ -75,8 +109,10 @@ function drawObstacle(o) {
   }
   if (o.type === 'buoy') {
     const tilt = Math.sin(gt * 3.2 + o.ph) * 0.25;
+    ellipse(x + 5, y + 5, r, r * 0.7, 0, 'rgba(0,0,0,.25)');          // cień
     ctx.save(); ctx.translate(x, y); ctx.rotate(tilt);
     circle(0, 0, r, '#e53935');
+    ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.arc(0, 0, r, 0.2, Math.PI - 0.2); ctx.fill();   // ciemniejszy dół
     ctx.fillStyle = '#ffffff'; ctx.fillRect(-r, -3, r * 2, 6);
     circle(0, -r + 1, 3, '#263238');
     ctx.restore();

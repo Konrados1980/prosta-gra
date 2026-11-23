@@ -273,3 +273,16 @@ test("głębia: wysokość samolotu tylko zmienia wygląd – zderzenia bez zmia
   assert.ok(r.boosted > r.early, "przy przyspieszaniu samolot powinien być wyżej");
   assert.equal(r.livesLost, 1, "wysokość nie może chronić przed zderzeniem");
 });
+
+test("bryły: każda przeszkoda (także popękany głaz), armatka i drzewa rysują się bez błędu we wszystkich porach", () => {
+  const g = loadGame();
+  assert.doesNotThrow(() => g.run(`
+    newGame(); obstacles = []; nextSpawn = 1e12;
+    for (const c of [2000, 15000, 25000, 35000]) {
+      cam = c; const wy = cam + 300, r = riverAt(wy);
+      obstacles = Object.keys(TYPES).map((type, i) => ({ type, x: r.c, wy: wy + i * 40, bx: r.c, hp: 1, flash: i % 2 ? 0.1 : 0,
+        r: type === 'boulder' ? 24 : type === 'log' ? 6 : 12, len: 56, vx: 0, amp: 0, ph: 0, pull: 90, spin: 0 }));
+      cannons = [{ x: r.c - r.w - 22, wy, dir: 1, hp: 1, cd: 0.1, flash: 0.1 }];
+      drawWorld();
+    }`));
+});
