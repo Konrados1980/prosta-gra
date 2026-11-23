@@ -65,13 +65,13 @@ function drawPlane() {
 
   // Cień na wodzie (przesunięty, jakby słońce świeciło z lewej góry)
   ctx.save();
-  ctx.translate(x + 8 + 16 * alt, y + 12 + 24 * alt); ctx.scale(0.9 - 0.12 * alt, 0.9 - 0.12 * alt); ctx.rotate(roll * 0.15);
-  ctx.fillStyle = `rgba(0,0,0,${0.28 - 0.1 * alt})`;
+  ctx.translate(x + 5 + 32 * alt, y + 8 + 46 * alt); ctx.scale(0.95 - 0.25 * alt, 0.95 - 0.25 * alt); ctx.rotate(roll * 0.15);
+  ctx.fillStyle = `rgba(0,0,0,${0.32 - 0.17 * alt})`;
   for (const p of ['wings', 'tail', 'canards', 'body']) { jetPath(p, sx); ctx.fill(); }
   ctx.restore();
 
   ctx.save();
-  ctx.translate(x, y); ctx.rotate(roll * 0.15); ctx.scale(1 + 0.15 * alt, 1 + 0.15 * alt);
+  ctx.translate(x, y); ctx.rotate(roll * 0.15); ctx.scale(0.95 + 0.4 * alt, 0.95 + 0.4 * alt);
 
   // Płomień z silnika (dłuższy, gdy lecisz do przodu)
   const flame = 9 + Math.random() * 5 + (plane.boost || 0) * 8;

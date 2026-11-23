@@ -53,7 +53,7 @@ function drawClouds() {
 // Samolot lekko faluje, wznosi się przy przyspieszaniu (↑) i opada przy hamowaniu (↓).
 function planeAltitude() {
   const target = Math.max(0, Math.min(1,
-    0.45 + 0.25 * Math.sin(gt * 0.7) + (plane.boost ? 0.3 : 0) - (keys.ArrowDown ? 0.25 : 0)));
+    0.45 + 0.3 * Math.sin(gt * 0.7) + (plane.boost ? 0.5 : 0) - (keys.ArrowDown ? 0.45 : 0)));
   plane.alt = plane.alt === undefined ? target : plane.alt + (target - plane.alt) * 0.05;
   return plane.alt;
 }
