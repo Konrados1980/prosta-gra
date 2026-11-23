@@ -64,6 +64,7 @@ function drawAngled() {
   const g = ctx.createLinearGradient(0, 0, 0, h0);
   g.addColorStop(0, `rgb(${sky.map(Math.round)})`); g.addColorStop(1, rgba([...mixArr(sky, [255, 255, 255], 0.45), 1]));
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, h0 + 1);
+  drawMountains(sky, h0);        // góry i pagórki na horyzoncie
   ctx.fillStyle = rgba(pal.grass); ctx.fillRect(0, h0, W, H - h0);
 
   // 3) świat przenoszony pasek po pasku (pasek co 2 piksele ekranu)
@@ -88,6 +89,45 @@ function drawAngled() {
   drawCloudsAngled();
   plane.x = p.x; plane.y = p.y;                 // reflektor nocą świeci z miejsca, gdzie widać samolot
   try { drawAtmosphere(); } finally { plane.x = real.x; plane.y = real.y; }
+}
+
+// Góry na horyzoncie: dwie warstwy. Przy skręcaniu samolotu bliższe pagórki przesuwają się na boki
+// bardziej niż dalekie góry (paralaksa w poziomie). Kształt grzbietu to suma kilku fal – zawsze ten sam.
+const MOUNTAINS = [
+  { height: 62, shift: 0.06, waves: [[0.011, 1.3, 0.5], [0.027, 4.1, 0.3], [0.063, 2.2, 0.2]], tint: [70, 90, 130], haze: 0.55, snow: true },
+  { height: 32, shift: 0.16, waves: [[0.017, 0.4, 0.55], [0.041, 2.9, 0.3], [0.09, 5.3, 0.15]], tint: [40, 80, 50], haze: 0.3, snow: false },
+];
+function ridge(m, x) {
+  let h = 0;
+  for (const [f, ph, a] of m.waves) h += a * (0.5 + 0.5 * Math.sin(x * f + ph));
+  return m.height * h;
+}
+function drawMountains(sky, h0) {
+  const turn = (plane ? plane.x - W / 2 : 0);
+  for (const m of MOUNTAINS) {
+    const off = -turn * m.shift;
+    // kolor: odcień gór zmieszany z niebem (im dalej, tym bardziej „za mgłą”), nocą ciemniej, zimą jaśniej
+    let col = mixArr(m.tint, sky, m.haze);
+    col = mixArr(col, [10, 15, 35], pal.dark * 0.8);
+    col = mixArr(col, [225, 232, 240], pal.snow * (m.snow ? 0.55 : 0.75));
+    ctx.fillStyle = rgba([...col, 1]);
+    ctx.beginPath(); ctx.moveTo(0, h0 + 1);
+    for (let x = 0; x <= W + 8; x += 8) ctx.lineTo(x, h0 - ridge(m, x - off));
+    ctx.lineTo(W, h0 + 1); ctx.closePath(); ctx.fill();
+    if (m.snow) {
+      // śnieżne czubki: tam, gdzie grzbiet jest wyżej niż 55% maksymalnej wysokości
+      ctx.fillStyle = `rgba(245,248,255,${0.55 + 0.4 * pal.snow - 0.4 * pal.dark})`;
+      ctx.beginPath();
+      let inPeak = false;
+      for (let x = 0; x <= W + 8; x += 4) {
+        const r = ridge(m, x - off), cap = m.height * 0.55;
+        if (r > cap) { if (!inPeak) { ctx.moveTo(x, h0 - cap); inPeak = true; } ctx.lineTo(x, h0 - r); }
+        else if (inPeak) { ctx.lineTo(x, h0 - cap); ctx.closePath(); inPeak = false; }
+      }
+      if (inPeak) { ctx.lineTo(W + 8, h0 - m.height * 0.55); ctx.closePath(); }
+      ctx.fill();
+    }
+  }
 }
 
 // Przycisk pod grą: to samo co klawisz V

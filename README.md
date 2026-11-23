@@ -48,7 +48,7 @@ Zmiana graczy lub imion: na ekranie wyników kliknij „Zmień graczy / imiona�
 - P pauza
 - Enter start i nowa gra
 - F pełny ekran (albo przycisk „Pełny ekran” pod grą; wyjście: F lub Esc)
-- V widok: **pod kątem** (domyślny – perspektywa z horyzontem i niebem) albo z góry; także przycisk „Widok” pod grą; wybór jest zapamiętany
+- V widok: **pod kątem** (domyślny – perspektywa z niebem i górami na horyzoncie; przy skręcaniu bliższe pagórki przesuwają się na boki bardziej niż dalekie góry) albo z góry; także przycisk „Widok” pod grą; wybór jest zapamiętany
 - D dźwięk włącz / wyłącz (albo przycisk „Dźwięk” pod grą; wybór jest zapamiętany)
 
 Dźwięki (strzał, trafienie, rozbicie, gwiazdka, wybuch, ostrzeżenie i strzał armatki, nowy etap, szum silnika) są tworzone w kodzie przez Web Audio – bez plików dźwiękowych. Włączają się po pierwszym naciśnięciu klawisza albo kliknięciu (tak działają przeglądarki).

@@ -311,3 +311,16 @@ test("widok pod kątem: perspektywa – blisko skala 1, daleko mniejsza, bez roz
   assert.ok(r.mid.s > 0.5 && r.mid.s < 1, "środek pomiędzy");
   assert.ok(r.hz > 150 && r.hz < 210, `horyzont ok. 28% wysokości: ${r.hz}`);
 });
+
+test("góry na horyzoncie: bliższe pagórki przesuwają się na boki bardziej niż dalekie góry; rysowanie każdej pory", () => {
+  const g = loadGame();
+  const r = g.run(`
+    newGame(); view3d = true; state = 'play';
+    const far = MOUNTAINS[0], near = MOUNTAINS[1];
+    const shiftFar = 100 * far.shift, shiftNear = 100 * near.shift;     // samolot 100 jednostek w bok
+    const maxH = MOUNTAINS.map(m => { let mx = 0; for (let x = 0; x < 2000; x += 3) mx = Math.max(mx, ridge(m, x)); return mx; });
+    for (const c of [2000, 15000, 25000, 35000]) { cam = c; plane.x = W / 2 + 120; draw(); }
+    ({ shiftFar, shiftNear, maxH, hz: hz() })`);
+  assert.ok(r.shiftNear > r.shiftFar, "bliższe pagórki muszą przesuwać się bardziej");
+  for (const h of r.maxH) assert.ok(h > 0 && h < r.hz, `góry muszą mieścić się nad horyzontem: ${h}`);
+});
