@@ -48,6 +48,7 @@ Zmiana graczy lub imion: na ekranie wyników kliknij „Zmień graczy / imiona�
 - P pauza
 - Enter start i nowa gra
 - F pełny ekran (albo przycisk „Pełny ekran” pod grą; wyjście: F lub Esc)
+- V widok: z góry albo **pod kątem** (perspektywa z horyzontem i niebem; albo przycisk „Widok” pod grą; wybór jest zapamiętany)
 - D dźwięk włącz / wyłącz (albo przycisk „Dźwięk” pod grą; wybór jest zapamiętany)
 
 Dźwięki (strzał, trafienie, rozbicie, gwiazdka, wybuch, ostrzeżenie i strzał armatki, nowy etap, szum silnika) są tworzone w kodzie przez Web Audio – bez plików dźwiękowych. Włączają się po pierwszym naciśnięciu klawisza albo kliknięciu (tak działają przeglądarki).
@@ -88,6 +89,7 @@ Gra to zwykła strona: `index.html` (szkielet), `style.css` (wygląd) i skrypty 
 | [src/combat.js](src/combat.js) | rozbicie samolotu, armatki, trafienia, punkty, wybuchy |
 | [src/powerups.js](src/powerups.js) | bonusy: pojawianie się, zbieranie, działanie, ikony, bańka tarczy, liczniki |
 | [src/depth.js](src/depth.js) | efekty głębi: chmury na dwóch wysokościach (paralaksa), ich cienie, wysokość lotu samolotu |
+| [src/perspective.js](src/perspective.js) | widok pod kątem: perspektywa, niebo i horyzont, samolot i chmury w przeliczonym miejscu, przełącznik V |
 | [src/stages.js](src/stages.js) | etapy: kolory pór dnia, przejścia, noc z reflektorem, kry, napis „Etap N” |
 | [src/render-world.js](src/render-world.js) | rysowanie trawy, rzeki, plaż, fal, wysp |
 | [src/render-objects.js](src/render-objects.js) | rysowanie drzew, armatek i przeszkód |

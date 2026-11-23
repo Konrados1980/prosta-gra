@@ -286,3 +286,28 @@ test("bryły: każda przeszkoda (także popękany głaz), armatka i drzewa rysuj
       drawWorld();
     }`));
 });
+
+test("widok pod kątem: domyślnie widok z góry, V przełącza i zapamiętuje", () => {
+  const g = loadGame();
+  assert.equal(g.run("view3d"), false, "nowy gracz powinien mieć widok z góry");
+  g.run("toggleView()");
+  assert.equal(g.run("view3d"), true);
+  assert.equal(g.store.lotNadRzeka_view, "kat");
+  g.run("toggleView()");
+  assert.equal(g.run("view3d"), false);
+  assert.equal(g.store.lotNadRzeka_view, "gora");
+});
+
+test("widok pod kątem: perspektywa – blisko skala 1, daleko mniejsza, bez rozciągania; rysowanie każdej pory", () => {
+  const g = loadGame();
+  const r = g.run(`
+    newGame(); toggleView();
+    const near = project(W / 2, H), far = project(W / 2, 0), mid = project(100, H / 2);
+    for (const c of [2000, 15000, 25000, 35000]) { cam = c; state = 'play'; draw(); }
+    state = 'menu'; draw();
+    ({ near, far, mid, hz: hz() })`);
+  assert.ok(Math.abs(r.near.s - 1) < 1e-9 && Math.abs(r.near.y - 640) < 1e-6, "dół ekranu bez zmian");
+  assert.ok(Math.abs(r.far.s - 0.5) < 1e-9 && Math.abs(r.far.y - r.hz) < 1e-6, "najdalej skala 0,5 na horyzoncie");
+  assert.ok(r.mid.s > 0.5 && r.mid.s < 1, "środek pomiędzy");
+  assert.ok(r.hz > 150 && r.hz < 210, `horyzont ok. 28% wysokości: ${r.hz}`);
+});

@@ -1,7 +1,7 @@
 // rozmiar planszy, pełny ekran, przesuwanie świata po zmianie okna
 // ===== Ustawienia =====
 const canvas = document.getElementById('gra');
-const ctx = canvas.getContext('2d');
+let ctx = canvas.getContext('2d');   // „let”: widok pod kątem na chwilę rysuje na innym płótnie (src/perspective.js)
 const SEG = 160;          // długość jednego odcinka rzeki (w pikselach świata)
 
 // ===== Rozmiar planszy =====

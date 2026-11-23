@@ -51,13 +51,16 @@ function overlay(title, lines) {
 
 function draw() {
   ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
-  drawWorld();
-  drawCloudShadows();            // cienie chmur na ziemi (src/depth.js)
-  if (state === 'play' || state === 'pause') { drawPlane(); drawShield(); }
-  drawParticles();
-  drawClouds();                  // chmury nad samolotem – przesuwają się szybciej niż ziemia
-  drawAtmosphere();             // zachód słońca, noc z reflektorem (src/stages.js)
-  drawPopups();
+  if (view3d) drawAngled();      // widok pod kątem (src/perspective.js), przełącznik V
+  else {
+    drawWorld();
+    drawCloudShadows();            // cienie chmur na ziemi (src/depth.js)
+    if (state === 'play' || state === 'pause') { drawPlane(); drawShield(); }
+    drawParticles();
+    drawClouds();                  // chmury nad samolotem – przesuwają się szybciej niż ziemia
+    drawAtmosphere();             // zachód słońca, noc z reflektorem (src/stages.js)
+    drawPopups();
+  }
   if (state === 'play') drawStageBanner();
   if (state !== 'menu' && state !== 'results') { drawHud(); drawPowerHud(); }
   if (state === 'menu' || state === 'results') { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, W, H); }

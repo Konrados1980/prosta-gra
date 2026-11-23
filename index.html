@@ -8,10 +8,11 @@
 </head>
 <body>
 <canvas id="gra" width="480" height="640"></canvas>
-<p id="stopka">Strzałki: lot · Spacja lub X: strzał · P: pauza · Enter: start · F: pełny ekran · D: dźwięk
+<p id="stopka">Strzałki: lot · Spacja lub X: strzał · P: pauza · Enter: start · F: pełny ekran · D: dźwięk · V: widok
   <button id="pelnyEkran" type="button">⛶ Pełny ekran</button>
   <button id="dzwiek" type="button">🔊 Dźwięk (D)</button>
-  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 2.6 (wyraźna wysokość)</small></p>
+  <button id="widok" type="button">🎥 Widok: z góry (V)</button>
+  <br><small>Telefon: przesuwaj palcem po ekranie gry · wersja 2.7 (widok pod kątem)</small></p>
 <div id="panel" class="ukryty"><div class="okno" id="okno"></div></div>
 
 <script src="src/screen.js"></script>
@@ -24,6 +25,7 @@
 <script src="src/powerups.js"></script>
 <script src="src/stages.js"></script>
 <script src="src/depth.js"></script>
+<script src="src/perspective.js"></script>
 <script src="src/render-world.js"></script>
 <script src="src/render-objects.js"></script>
 <script src="src/render-plane.js"></script>
