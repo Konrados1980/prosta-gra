@@ -2,8 +2,8 @@
 // Jak to działa: świat rysujemy jak zwykle (z góry) na niewidocznym płótnie, a potem przenosimy go na ekran
 // pasek po pasku – im wyżej (dalej), tym pasek węższy i bardziej ściśnięty. Logika gry się nie zmienia.
 const FAR_SCALE = 0.5;    // najdalsza część świata jest 2× mniejsza (1 = bez perspektywy); horyzont wychodzi ok. 28% od góry
-let view3d = false;
-try { view3d = localStorage.getItem('lotNadRzeka_view') === 'kat'; } catch (e) {}
+let view3d = true;       // domyślnie widok pod kątem; kto wybrał „z góry” (V), ten go zachowuje
+try { view3d = localStorage.getItem('lotNadRzeka_view') !== 'gora'; } catch (e) {}
 let scene = null, sceneCtx = null;
 
 function toggleView() {

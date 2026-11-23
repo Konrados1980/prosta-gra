@@ -287,21 +287,21 @@ test("bryły: każda przeszkoda (także popękany głaz), armatka i drzewa rysuj
     }`));
 });
 
-test("widok pod kątem: domyślnie widok z góry, V przełącza i zapamiętuje", () => {
+test("widok pod kątem: domyślny dla nowego gracza, V przełącza i zapamiętuje", () => {
   const g = loadGame();
-  assert.equal(g.run("view3d"), false, "nowy gracz powinien mieć widok z góry");
-  g.run("toggleView()");
-  assert.equal(g.run("view3d"), true);
-  assert.equal(g.store.lotNadRzeka_view, "kat");
+  assert.equal(g.run("view3d"), true, "nowy gracz powinien mieć widok pod kątem");
   g.run("toggleView()");
   assert.equal(g.run("view3d"), false);
   assert.equal(g.store.lotNadRzeka_view, "gora");
+  g.run("toggleView()");
+  assert.equal(g.run("view3d"), true);
+  assert.equal(g.store.lotNadRzeka_view, "kat");
 });
 
 test("widok pod kątem: perspektywa – blisko skala 1, daleko mniejsza, bez rozciągania; rysowanie każdej pory", () => {
   const g = loadGame();
   const r = g.run(`
-    newGame(); toggleView();
+    newGame(); view3d = true;
     const near = project(W / 2, H), far = project(W / 2, 0), mid = project(100, H / 2);
     for (const c of [2000, 15000, 25000, 35000]) { cam = c; state = 'play'; draw(); }
     state = 'menu'; draw();
