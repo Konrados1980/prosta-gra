@@ -52,8 +52,10 @@ function overlay(title, lines) {
 function draw() {
   ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
   drawWorld();
+  drawCloudShadows();            // cienie chmur na ziemi (src/depth.js)
   if (state === 'play' || state === 'pause') { drawPlane(); drawShield(); }
   drawParticles();
+  drawClouds();                  // chmury nad samolotem – przesuwają się szybciej niż ziemia
   drawAtmosphere();             // zachód słońca, noc z reflektorem (src/stages.js)
   drawPopups();
   if (state === 'play') drawStageBanner();

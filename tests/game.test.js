@@ -243,3 +243,33 @@ test("bonusy: tarcza ratuje życie, potrójny strzał, spowolnienie, życie max 
   assert.equal(r.maxLives, 5);
   assert.equal(r.afterNew, 0);
 });
+
+test("głębia: chmury przesuwają się szybciej niż ziemia, wyższa warstwa najszybciej", () => {
+  const g = loadGame();
+  const r = g.run(`
+    newGame(); cam = 3000;
+    const before = CLOUD_LAYERS.map((l, i) => cloudsOf(l, i)[0]);
+    cam += 10;                                  // ziemia przesuwa się o 10
+    const moved = CLOUD_LAYERS.map((l, i) => { const c = cloudsOf(l, i).find(c => Math.abs(c.x - before[i].x) < 1e-9); return c.y - before[i].y; });
+    ({ moved })`);
+  assert.ok(Math.abs(r.moved[0] - 13.5) < 1e-6, `niższe chmury: ${r.moved[0]}`);
+  assert.ok(Math.abs(r.moved[1] - 18) < 1e-6, `wyższe chmury: ${r.moved[1]}`);
+});
+
+test("głębia: wysokość samolotu tylko zmienia wygląd – zderzenia bez zmian, rysowanie każdej pory bez błędu", () => {
+  const g = loadGame();
+  const r = g.run(`
+    menuCount = 1; startFromMenu(); obstacles = []; nextSpawn = 1e12; nextCannon = 1e12; nextPowerup = 1e12;
+    const alts = [];
+    for (let i = 0; i < 600; i++) { keys.ArrowUp = i > 300; update(1 / 60); plane.x = channelCenter(toWorldY(plane.y)); invuln = 1; draw(); alts.push(plane.alt); }
+    keys.ArrowUp = false;
+    for (const c of [15000, 25000, 35000]) { cam = c; draw(); }
+    // skała tuż obok samolotu rozbija go niezależnie od wysokości
+    invuln = 0; plane.alt = 1;
+    obstacles.push({ type: 'rock', x: plane.x + 5, wy: toWorldY(plane.y), r: 10, hp: 1, flash: 0 });   // blisko: wynik nie zależy od prędkości
+    const l0 = lives; update(1 / 60);
+    ({ min: Math.min(...alts), max: Math.max(...alts), early: alts[250], boosted: alts[599], livesLost: l0 - lives })`);
+  assert.ok(r.min >= 0 && r.max <= 1, `wysokość poza 0–1: ${r.min}–${r.max}`);
+  assert.ok(r.boosted > r.early, "przy przyspieszaniu samolot powinien być wyżej");
+  assert.equal(r.livesLost, 1, "wysokość nie może chronić przed zderzeniem");
+});

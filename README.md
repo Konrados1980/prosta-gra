@@ -10,6 +10,10 @@ Prosta zręcznościówka w przeglądarce. Lecisz samolotem nad krętą rzeką, o
 
 Kliknij dwa razy plik `index.html` i gra otworzy się w przeglądarce. Nic nie trzeba instalować.
 
+## Efekty głębi („trochę 3D”)
+
+Nad samolotem płyną chmury na dwóch wysokościach – przesuwają się szybciej niż ziemia (wyższe najszybciej), a ich cienie suną po ziemi i wodzie. Samolot lekko faluje w górę i w dół: wznosi się, gdy przyspieszasz (↑), i obniża, gdy hamujesz (↓) – im wyżej, tym jest większy, a jego cień dalej. To tylko wygląd: zderzenia działają tak samo na każdej wysokości.
+
 ## Bonusy
 
 Co kilka sekund lotu na wodzie pojawia się świecąca ikonka. Zbierasz ją przelotem:
@@ -81,6 +85,7 @@ Gra to zwykła strona: `index.html` (szkielet), `style.css` (wygląd) i skrypty 
 | [src/game.js](src/game.js) | nowa gra i logika każdej klatki (ruch, strzały, zderzenia) |
 | [src/combat.js](src/combat.js) | rozbicie samolotu, armatki, trafienia, punkty, wybuchy |
 | [src/powerups.js](src/powerups.js) | bonusy: pojawianie się, zbieranie, działanie, ikony, bańka tarczy, liczniki |
+| [src/depth.js](src/depth.js) | efekty głębi: chmury na dwóch wysokościach (paralaksa), ich cienie, wysokość lotu samolotu |
 | [src/stages.js](src/stages.js) | etapy: kolory pór dnia, przejścia, noc z reflektorem, kry, napis „Etap N” |
 | [src/render-world.js](src/render-world.js) | rysowanie trawy, rzeki, plaż, fal, wysp |
 | [src/render-objects.js](src/render-objects.js) | rysowanie drzew, armatek i przeszkód |

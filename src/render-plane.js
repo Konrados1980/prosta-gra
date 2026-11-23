@@ -57,19 +57,21 @@ function jetPath(part, sx) {
 }
 
 function drawPlane() {
+  // Wysokość lotu (src/depth.js): im wyżej, tym cień dalej, mniejszy i jaśniejszy, a samolot większy
+  const alt = planeAltitude();                          // liczona co klatkę, także podczas migania
   if (invuln > 0 && Math.floor(invuln * 10) % 2 === 0) return;   // miganie podczas ochrony
   const { x, y } = plane, roll = plane.roll || 0;
   const sx = 1 - Math.abs(roll) * 0.28;                // przechylone skrzydła wyglądają na krótsze
 
   // Cień na wodzie (przesunięty, jakby słońce świeciło z lewej góry)
   ctx.save();
-  ctx.translate(x + 16, y + 24); ctx.scale(0.85, 0.85); ctx.rotate(roll * 0.15);
-  ctx.fillStyle = 'rgba(0,0,0,.22)';
+  ctx.translate(x + 8 + 16 * alt, y + 12 + 24 * alt); ctx.scale(0.9 - 0.12 * alt, 0.9 - 0.12 * alt); ctx.rotate(roll * 0.15);
+  ctx.fillStyle = `rgba(0,0,0,${0.28 - 0.1 * alt})`;
   for (const p of ['wings', 'tail', 'canards', 'body']) { jetPath(p, sx); ctx.fill(); }
   ctx.restore();
 
   ctx.save();
-  ctx.translate(x, y); ctx.rotate(roll * 0.15);
+  ctx.translate(x, y); ctx.rotate(roll * 0.15); ctx.scale(1 + 0.15 * alt, 1 + 0.15 * alt);
 
   // Płomień z silnika (dłuższy, gdy lecisz do przodu)
   const flame = 9 + Math.random() * 5 + (plane.boost || 0) * 8;
